@@ -33,15 +33,20 @@ class Settings:
 
 
 DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parent.parent / "settings.ini"
+SAMPLE_SETTINGS_PATH = Path(__file__).resolve().parent.parent / "settings.example.ini"
 
 
 def load_settings(path: Optional[Path] = None) -> Settings:
     config_path = Path(path or DEFAULT_SETTINGS_PATH)
     if not config_path.exists():
-        save_settings(Settings(
-            serial=SerialSettings(),
-            app=AppSettings(),
-        ), config_path)
+        if SAMPLE_SETTINGS_PATH.exists():
+            config_path = SAMPLE_SETTINGS_PATH
+        else:
+            save_settings(Settings(
+                serial=SerialSettings(),
+                app=AppSettings(),
+            ), config_path)
+            return load_settings(config_path)
 
     parser = configparser.ConfigParser()
     parser.read(config_path)

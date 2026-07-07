@@ -32,23 +32,21 @@ class SerialFrequencyReader:
 
     def read_frequency(self) -> float:
         self.connect()
-        last_freq = 0.0
-        for _ in range(self.settings.retries):
-            if self._serial is None or not self._serial.is_open:
-                break
-            try:
-                self._serial.write(f"{self.settings.command}{self.settings.termination}".encode("ascii"))
-                time.sleep(self.settings.retry_delay)
-                response = self._serial.read_until(expected=self.settings.termination.encode("ascii"))
-                if not response:
-                    continue
-                parsed = self._parse_frequency(response)
-                if parsed is not None:
-                    last_freq = parsed
-                    break
-            except Exception:
-                continue
-        return last_freq
+        if self._serial is None or not self._serial.is_open:
+            return 0.0
+
+        try:
+            self._serial.write(f"{self.settings.command}{self.settings.termination}".encode("ascii"))
+            time.sleep(0.1)
+            response = self._serial.read_until(expected=self.settings.termination.encode("ascii"))
+            if not response:
+                return 0.0
+            parsed = self._parse_frequency(response)
+            if parsed is not None:
+                return parsed
+        except Exception:
+            return 0.0
+        return 0.0
 
     @staticmethod
     def _parse_frequency(response: bytes) -> Optional[float]:

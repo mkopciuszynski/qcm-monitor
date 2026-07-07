@@ -201,6 +201,9 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Local application settings
+settings.ini
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
