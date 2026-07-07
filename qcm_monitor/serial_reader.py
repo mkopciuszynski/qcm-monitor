@@ -16,6 +16,8 @@ class SerialFrequencyReader:
         self.settings = settings
         self._serial: Optional[serial.Serial] = None
         self.last_error: Optional[str] = None
+        self.last_raw_response: Optional[str] = None
+        self.last_command: Optional[str] = None
 
     def connect(self) -> bool:
         if self._serial is not None and self._serial.is_open:
@@ -46,14 +48,18 @@ class SerialFrequencyReader:
             return 0.0
 
         try:
-            self._serial.write(f"{self.settings.command}{self.settings.termination}".encode("ascii"))
-            self._serial.flushInput()
+            self.last_command = f"{self.settings.command}{self.settings.termination}"
+            self._serial.write(self.last_command.encode("ascii"))
             response = self._serial.read_until(expected=self.settings.termination.encode("ascii"))
+            self.last_raw_response = response.decode("ascii", errors="ignore").strip()
             if not response:
+                self.last_error = "No response from device"
                 return 0.0
             parsed = self._parse_frequency(response)
             if parsed is not None:
+                self.last_error = None
                 return parsed
+            self.last_error = f"Could not parse response: {self.last_raw_response}"
         except (serial.SerialException, OSError) as exc:
             self._serial = None
             self.last_error = str(exc)

@@ -92,6 +92,12 @@ class QCMApp:
         else:
             detail = self.reader.last_error or "Waiting for serial data..."
             self.message_text.insert(tk.END, f"\n{detail}")
+            if self.reader.last_command:
+                self.message_text.insert(tk.END, f"\nCommand: {self.reader.last_command}")
+            if self.reader.last_raw_response:
+                self.message_text.insert(tk.END, f"\nRaw response: {self.reader.last_raw_response}")
+            self.message_text.insert(tk.END, f"\nPort: {self.settings.serial.port}")
+            self.message_text.insert(tk.END, f"\nBaudrate: {self.settings.serial.baudrate}")
 
     def exit_app(self) -> None:
         self.reader.close()
