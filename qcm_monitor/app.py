@@ -85,22 +85,27 @@ class QCMApp:
         self.message_text.insert(tk.END, f"{raw_freq:.4f}")
         self.message_text.insert(tk.END, "\nDisplay freq Hz: ")
         self.message_text.insert(tk.END, f"{display_freq:.4f}")
-        self.message_text.insert(tk.END, "\nShort velocity Hz/min: ")
+        self.message_text.insert(tk.END, "\nShort slope (5 pts) Hz/min: ")
         self.message_text.insert(tk.END, f"{self.plotter.short_diff_data[-1]:.4f}")
-        self.message_text.insert(tk.END, "\nLong velocity Hz/min: ")
+        self.message_text.insert(tk.END, "\nAverage slope (20 pts) Hz/min: ")
         self.message_text.insert(tk.END, f"{self.plotter.long_diff_data[-1]:.4f}")
+        self.message_text.insert(tk.END, "\nLong slope (50 pts) Hz/min: ")
+        self.message_text.insert(tk.END, f"{self.plotter.average_diff_data[-1]:.4f}")
         self.message_text.insert(tk.END, "\n")
 
         if self.plotter.finish_freq > 0 and self.plotter.short_diff_data:
             self.freq_left = self.plotter.freq_data[-1] - self.plotter.finish_freq
-            self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.short_diff_data[-1]
+            if self.plotter.short_diff_data[-1] not in (None, float("nan")) and self.plotter.short_diff_data[-1] != 0:
+                self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.short_diff_data[-1]
+            else:
+                self.time_left = None
             self.message_text.insert(tk.END, "\nFreq left [Hz]: ")
             self.message_text.insert(tk.END, f"{self.freq_left:.2f}")
             self.message_text.insert(tk.END, "\nTime left [min]: ")
-            self.message_text.insert(tk.END, f"{self.time_left:.2f}")
-            if self.time_left < 1:
+            self.message_text.insert(tk.END, f"{self.time_left:.2f}" if self.time_left is not None else "n/a")
+            if self.time_left is not None and self.time_left < 1:
                 winsound.Beep(2500, 100)
-            if self.time_left < 0:
+            if self.time_left is not None and self.time_left < 0:
                 winsound.Beep(2500, 1000)
 
         detail = self.reader.last_error or "Waiting for serial data..."
@@ -159,6 +164,16 @@ class QCMApp:
             self.delta_freq = 0.0
         if self.delta_freq is not None:
             self.plotter.finish_line_plot(self.delta_freq)
+            if self.plotter.freq_data:
+                start_freq = self.plotter.freq_data[-1]
+                self.message_text.insert(tk.END, f"\nStart freq (real): {start_freq:.4f} Hz\n")
+                if self.plotter.short_diff_data:
+                    slope = self.plotter.short_diff_data[-1]
+                    if slope:
+                        remaining_time = -(self.plotter.finish_freq - start_freq) / slope
+                        remaining_hz = self.plotter.finish_freq - start_freq
+                        self.message_text.insert(tk.END, f"Hz left: {remaining_hz:.4f}\n")
+                        self.message_text.insert(tk.END, f"Min left: {remaining_time:.4f}\n")
 
 
 def create_app(settings_path: Optional[Path] = None) -> QCMApp:

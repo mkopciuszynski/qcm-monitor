@@ -24,10 +24,11 @@ class Plotter:
         self.freq_data: list[float] = []
         self.short_diff_data: list[float] = []
         self.long_diff_data: list[float] = []
+        self.average_diff_data: list[float] = []
 
         ax = self.axs[1]
         ax.set_xlabel("Time [s]")
-        ax.set_ylabel("Velocity [Hz/min]")
+        ax.set_ylabel("Slope [Hz/min]")
         ax = self.axs[0]
         ax.set_ylabel("Freq [Hz]")
 
@@ -40,7 +41,7 @@ class Plotter:
             slope, _ = np.polyfit(x_last, y_last, 1)
             self.short_diff_data.append(slope * 60)
         else:
-            self.short_diff_data.append(-0.0001)
+            self.short_diff_data.append(float("nan"))
 
         if len(self.time) > self.long_diff_window_points:
             x_last = self.time[-self.long_diff_window_points:]
@@ -48,20 +49,31 @@ class Plotter:
             slope, _ = np.polyfit(x_last, y_last, 1)
             self.long_diff_data.append(slope * 60)
         else:
-            self.long_diff_data.append(-0.0001)
+            self.long_diff_data.append(float("nan"))
 
-        self.slope = self.long_diff_data[-1]
+        if len(self.time) > 50:
+            x_last = self.time[-50:]
+            y_last = self.freq_data[-50:]
+            slope, _ = np.polyfit(x_last, y_last, 1)
+            self.average_diff_data.append(slope * 60)
+        else:
+            self.average_diff_data.append(float("nan"))
+
+        self.slope = self.average_diff_data[-1]
 
         ax = self.axs[0]
         ax.relim()
         ax.autoscale_view()
         ax.plot(self.time[-1], self.freq_data[-1], ".b")
+        if len(self.time) >= 50:
+            ax.axvline(x=self.time[-50], color="gray", linestyle="--", linewidth=0.8)
 
         ax = self.axs[1]
         ax.relim()
         ax.autoscale_view()
-        ax.plot(self.time[-1], self.short_diff_data[-1], ".r")
-        ax.plot(self.time[-1], self.long_diff_data[-1], ".g")
+        ax.plot(self.time[-1], self.short_diff_data[-1], marker="+", linestyle="None", color="red")
+        ax.plot(self.time[-1], self.long_diff_data[-1], marker="o", linestyle="None", color="green")
+        ax.plot(self.time[-1], self.average_diff_data[-1], marker=".", linestyle="None", color="blue")
         self.fig.canvas.draw_idle()
 
     def clear_plot(self) -> None:
@@ -69,13 +81,14 @@ class Plotter:
         self.freq_data = []
         self.short_diff_data = []
         self.long_diff_data = []
+        self.average_diff_data = []
         self.finish_freq = 0.0
         self.start_freq = 0.0
         self.slope = 0.0
         ax = self.axs[1]
         ax.clear()
         ax.set_xlabel("Time [s]")
-        ax.set_ylabel("Velocity [Hz/min]")
+        ax.set_ylabel("Slope [Hz/min]")
         ax = self.axs[0]
         ax.clear()
         ax.set_ylabel("Freq [Hz]")
