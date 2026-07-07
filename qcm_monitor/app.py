@@ -8,7 +8,7 @@ from typing import Optional
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from .config import Settings, load_settings, save_settings
+from .config import load_settings
 from .plotter import Plotter
 from .serial_reader import SerialFrequencyReader
 
@@ -19,16 +19,13 @@ class QCMApp:
     def __init__(self, settings_path: Optional[Path] = None) -> None:
         self.settings = load_settings(settings_path)
         self.reader = SerialFrequencyReader(self.settings.serial)
-        self.plotter = Plotter(
-            diff_window_points=self.settings.plot.diff_window_points,
-            slope_window_points=self.settings.plot.slope_window_points,
-        )
+        self.plotter = Plotter()
         self.delta_freq: Optional[float] = None
         self.time_left: Optional[float] = None
         self.freq_left: Optional[float] = None
 
         self.root = tk.Tk()
-        self.root.title(self.settings.app.window_title)
+        self.root.title("QCM Monitor")
         self.root.geometry(f"{self.settings.app.window_width}x{self.settings.app.window_height}+0+0")
         self.root.protocol("WM_DELETE_WINDOW", self.exit_app)
 
@@ -51,49 +48,53 @@ class QCMApp:
         self.reset_button.grid(row=2, column=1, padx=2, pady=20)
         self.exit_button.grid(row=2, column=2, padx=2, pady=20)
 
-        self.update_loop()
+        self.root.after(50, self.start_background_updates)
 
     def run(self) -> None:
         self.root.mainloop()
 
-    def exit_app(self) -> None:
-        self.reader.close()
-        self.root.destroy()
+    def start_background_updates(self) -> None:
+        self._refresh_status()
+        self.root.after(self.settings.app.gate_time_seconds * 1000, self.start_background_updates)
 
-    def update_loop(self) -> None:
+    def _refresh_status(self) -> None:
         current_time = datetime.now()
         self.message_text.delete(1.0, tk.END)
         self.message_text.insert(tk.END, current_time.strftime("%H:%M:%S%z"))
         self.message_text.insert(tk.END, ": ")
 
         last_freq = self.reader.read_frequency()
-        last_freq -= self.settings.serial.zero_frequency
-        self.plotter.update_plot(last_freq)
+        if last_freq:
+            last_freq -= self.settings.serial.zero_frequency
+            if not self.plotter.freq_data:
+                self.plotter.start_freq = last_freq
+            self.plotter.update_plot(last_freq)
 
-        self.message_text.insert(tk.END, "\nLast freq Hz: ")
-        self.message_text.insert(tk.END, f"{last_freq:.4f}")
-        self.message_text.insert(tk.END, "\nDiff Hz/min: ")
-        self.message_text.insert(tk.END, f"{self.plotter.diff_data[-1]:.4f}")
-        self.message_text.insert(tk.END, "\nSlope (last 50 points) Hz/min: ")
-        self.message_text.insert(tk.END, f"{self.plotter.slope:.4f}")
-        self.message_text.insert(tk.END, "\n")
+            self.message_text.insert(tk.END, "\nLast freq Hz: ")
+            self.message_text.insert(tk.END, f"{last_freq:.4f}")
+            self.message_text.insert(tk.END, "\nDiff Hz/min: ")
+            self.message_text.insert(tk.END, f"{self.plotter.diff_data[-1]:.4f}")
+            self.message_text.insert(tk.END, "\nSlope (last 50 points) Hz/min: ")
+            self.message_text.insert(tk.END, f"{self.plotter.slope:.4f}")
+            self.message_text.insert(tk.END, "\n")
 
-        if self.plotter.finish_freq > 0 and self.plotter.diff_data:
-            self.freq_left = self.plotter.freq_data[-1] - self.plotter.finish_freq
-            self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.diff_data[-1]
-            self.message_text.insert(tk.END, "\nFreq left [Hz]: ")
-            self.message_text.insert(tk.END, f"{self.freq_left:.2f}")
-            self.message_text.insert(tk.END, "\nTime left [min]: ")
-            self.message_text.insert(tk.END, f"{self.time_left:.2f}")
-            if self.time_left < self.settings.app.beep_threshold_minutes:
-                winsound.Beep(2500, self.settings.app.beep_duration_ms)
-            if self.time_left < 0:
-                winsound.Beep(2500, self.settings.app.beep_warning_ms)
+            if self.plotter.finish_freq > 0 and self.plotter.diff_data:
+                self.freq_left = self.plotter.freq_data[-1] - self.plotter.finish_freq
+                self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.diff_data[-1]
+                self.message_text.insert(tk.END, "\nFreq left [Hz]: ")
+                self.message_text.insert(tk.END, f"{self.freq_left:.2f}")
+                self.message_text.insert(tk.END, "\nTime left [min]: ")
+                self.message_text.insert(tk.END, f"{self.time_left:.2f}")
+                if self.time_left < self.settings.app.beep_threshold_minutes:
+                    winsound.Beep(2500, self.settings.app.beep_duration_ms)
+                if self.time_left < 0:
+                    winsound.Beep(2500, self.settings.app.beep_warning_ms)
+        else:
+            self.message_text.insert(tk.END, "\nWaiting for serial data...")
 
-        time_difference = datetime.now() - current_time
-        new_time = int(time_difference.total_seconds() * 1000)
-        delay_ms = self.settings.app.gate_time_seconds * 1000 - new_time
-        self.root.after(max(100, delay_ms), self.update_loop)
+    def exit_app(self) -> None:
+        self.reader.close()
+        self.root.destroy()
 
     def button_reset(self) -> None:
         self.plotter.clear_plot()
