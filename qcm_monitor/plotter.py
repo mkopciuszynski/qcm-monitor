@@ -7,9 +7,10 @@ import matplotlib.pyplot as plt
 class Plotter:
     """Manage the frequency and slope plots."""
 
-    def __init__(self, diff_window_points: int = 5, slope_window_points: int = 50) -> None:
+    def __init__(self, diff_window_points: int = 5, slope_window_points: int = 50, gate_time_seconds: int = 5) -> None:
         self.diff_window_points = diff_window_points
         self.slope_window_points = slope_window_points
+        self.gate_time_seconds = gate_time_seconds
 
         self.fig = plt.Figure(figsize=(7, 8), dpi=100)
         self.axs = self.fig.subplots(2, 1, sharex=True)
@@ -30,7 +31,7 @@ class Plotter:
         ax.set_ylabel("Freq [Hz]")
 
     def update_plot(self, freq: float) -> None:
-        self.time.append(len(self.time) * 5)
+        self.time.append(len(self.time) * self.gate_time_seconds)
         self.freq_data.append(freq)
         if len(self.time) > self.diff_window_points:
             x_last = self.time[-self.diff_window_points:]

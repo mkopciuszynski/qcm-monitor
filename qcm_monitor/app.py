@@ -19,7 +19,7 @@ class QCMApp:
     def __init__(self, settings_path: Optional[Path] = None) -> None:
         self.settings = load_settings(settings_path)
         self.reader = SerialFrequencyReader(self.settings.serial)
-        self.plotter = Plotter()
+        self.plotter = Plotter(gate_time_seconds=self.settings.app.gate_time_seconds)
         self.delta_freq: Optional[float] = None
         self.time_left: Optional[float] = None
         self.freq_left: Optional[float] = None
@@ -48,14 +48,10 @@ class QCMApp:
         self.reset_button.grid(row=2, column=1, padx=2, pady=20)
         self.exit_button.grid(row=2, column=2, padx=2, pady=20)
 
-        self.root.after(50, self.start_background_updates)
+        self.root.after(100, self._refresh_status)
 
     def run(self) -> None:
         self.root.mainloop()
-
-    def start_background_updates(self) -> None:
-        self._refresh_status()
-        self.root.after(self.settings.app.gate_time_seconds * 1000, self.start_background_updates)
 
     def _refresh_status(self) -> None:
         current_time = datetime.now()
@@ -66,30 +62,29 @@ class QCMApp:
         last_freq = self.reader.read_frequency()
         if last_freq:
             last_freq -= self.settings.serial.zero_frequency
-            if not self.plotter.freq_data:
-                self.plotter.start_freq = last_freq
-            self.plotter.update_plot(last_freq)
+        self.plotter.update_plot(last_freq)
 
-            self.message_text.insert(tk.END, "\nLast freq Hz: ")
-            self.message_text.insert(tk.END, f"{last_freq:.4f}")
-            self.message_text.insert(tk.END, "\nDiff Hz/min: ")
-            self.message_text.insert(tk.END, f"{self.plotter.diff_data[-1]:.4f}")
-            self.message_text.insert(tk.END, "\nSlope (last 50 points) Hz/min: ")
-            self.message_text.insert(tk.END, f"{self.plotter.slope:.4f}")
-            self.message_text.insert(tk.END, "\n")
+        self.message_text.insert(tk.END, "\nLast freq Hz: ")
+        self.message_text.insert(tk.END, f"{last_freq:.4f}")
+        self.message_text.insert(tk.END, "\nDiff Hz/min: ")
+        self.message_text.insert(tk.END, f"{self.plotter.diff_data[-1]:.4f}")
+        self.message_text.insert(tk.END, "\nSlope (last 50 points) Hz/min: ")
+        self.message_text.insert(tk.END, f"{self.plotter.slope:.4f}")
+        self.message_text.insert(tk.END, "\n")
 
-            if self.plotter.finish_freq > 0 and self.plotter.diff_data:
-                self.freq_left = self.plotter.freq_data[-1] - self.plotter.finish_freq
-                self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.diff_data[-1]
-                self.message_text.insert(tk.END, "\nFreq left [Hz]: ")
-                self.message_text.insert(tk.END, f"{self.freq_left:.2f}")
-                self.message_text.insert(tk.END, "\nTime left [min]: ")
-                self.message_text.insert(tk.END, f"{self.time_left:.2f}")
-                if self.time_left < self.settings.app.beep_threshold_minutes:
-                    winsound.Beep(2500, self.settings.app.beep_duration_ms)
-                if self.time_left < 0:
-                    winsound.Beep(2500, self.settings.app.beep_warning_ms)
-        else:
+        if self.plotter.finish_freq > 0 and self.plotter.diff_data:
+            self.freq_left = self.plotter.freq_data[-1] - self.plotter.finish_freq
+            self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.diff_data[-1]
+            self.message_text.insert(tk.END, "\nFreq left [Hz]: ")
+            self.message_text.insert(tk.END, f"{self.freq_left:.2f}")
+            self.message_text.insert(tk.END, "\nTime left [min]: ")
+            self.message_text.insert(tk.END, f"{self.time_left:.2f}")
+            if self.time_left < 1:
+                winsound.Beep(2500, 100)
+            if self.time_left < 0:
+                winsound.Beep(2500, 1000)
+
+        if not self.plotter.freq_data or self.plotter.freq_data[-1] == 0.0:
             detail = self.reader.last_error or "Waiting for serial data..."
             self.message_text.insert(tk.END, f"\n{detail}")
             if self.reader.last_command:
@@ -98,6 +93,12 @@ class QCMApp:
                 self.message_text.insert(tk.END, f"\nRaw response: {self.reader.last_raw_response}")
             self.message_text.insert(tk.END, f"\nPort: {self.settings.serial.port}")
             self.message_text.insert(tk.END, f"\nBaudrate: {self.settings.serial.baudrate}")
+
+        time_difference = datetime.now() - current_time
+        new_time = int(time_difference.total_seconds() * 1000)
+        new_time = 5000 if new_time > 5000 else new_time
+        delay_ms = self.settings.app.gate_time_seconds * 1000 - new_time
+        self.root.after(max(100, delay_ms), self._refresh_status)
 
     def exit_app(self) -> None:
         self.reader.close()
