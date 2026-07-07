@@ -23,6 +23,7 @@ class QCMApp:
         self.delta_freq: Optional[float] = None
         self.time_left: Optional[float] = None
         self.freq_left: Optional[float] = None
+        self.reference_freq: Optional[float] = None
 
         self.root = tk.Tk()
         self.root.title("QCM Monitor")
@@ -61,12 +62,7 @@ class QCMApp:
 
         print(f"[app] refresh cycle at {current_time.strftime('%H:%M:%S')}")
         raw_freq = self.reader.read_frequency()
-        if raw_freq:
-            plotted_freq = raw_freq
-            display_freq = raw_freq - self.settings.serial.zero_frequency
-        else:
-            plotted_freq = 0.0
-            display_freq = 0.0
+        plotted_freq, display_freq = self._resolve_frequency(raw_freq)
         self.plotter.update_plot(plotted_freq)
 
         self.message_text.insert(tk.END, "\nRaw freq Hz: ")
@@ -108,8 +104,32 @@ class QCMApp:
         self.reader.close()
         self.root.destroy()
 
+    def _relative_frequency(self, raw_freq: float) -> float:
+        if self.reference_freq is None:
+            self.reference_freq = raw_freq
+            return 0.0
+        return raw_freq - self.reference_freq
+
+    def _resolve_frequency(self, raw_freq: float) -> tuple[float, float]:
+        if raw_freq:
+            if self.reference_freq is None:
+                self.reference_freq = raw_freq
+            return raw_freq, self._relative_frequency(raw_freq)
+
+        last_successful = getattr(self.reader, "last_successful_frequency", None)
+        if last_successful is not None:
+            if self.reference_freq is None:
+                self.reference_freq = last_successful
+            return last_successful, 0.0
+
+        if self.reference_freq is not None:
+            return self.reference_freq, 0.0
+
+        return 0.0, 0.0
+
     def button_reset(self) -> None:
         self.plotter.clear_plot()
+        self.reference_freq = None
         self.message_text.insert(tk.END, "\n======Clear======\n")
 
     def button_start(self) -> None:

@@ -18,6 +18,7 @@ class SerialFrequencyReader:
         self.last_error: Optional[str] = None
         self.last_raw_response: Optional[str] = None
         self.last_command: Optional[str] = None
+        self.last_successful_frequency: Optional[float] = None
 
     def connect(self) -> bool:
         if self._serial is not None and self._serial.is_open:
@@ -72,6 +73,7 @@ class SerialFrequencyReader:
                 parsed = self._parse_frequency(response)
                 if parsed is not None:
                     self.last_error = None
+                    self.last_successful_frequency = parsed
                     print(f"[serial] parsed frequency: {parsed}")
                     return parsed
 
