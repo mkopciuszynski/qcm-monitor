@@ -36,6 +36,17 @@ DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parent.parent / "settings.ini"
 SAMPLE_SETTINGS_PATH = Path(__file__).resolve().parent.parent / "settings.example.ini"
 
 
+def _decode_escaped_string(value: str) -> str:
+    try:
+        return bytes(value, "utf-8").decode("unicode_escape")
+    except UnicodeDecodeError:
+        return value
+
+
+def _encode_escaped_string(value: str) -> str:
+    return value.encode("unicode_escape").decode("ascii")
+
+
 def load_settings(path: Optional[Path] = None) -> Settings:
     config_path = Path(path or DEFAULT_SETTINGS_PATH)
     if not config_path.exists():
@@ -55,8 +66,8 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         port=parser.get("serial", "port", fallback="COM4"),
         baudrate=parser.getint("serial", "baudrate", fallback=9600),
         timeout=parser.getfloat("serial", "timeout", fallback=1.0),
-        command=parser.get("serial", "command", fallback="xmt"),
-        termination=parser.get("serial", "termination", fallback="\r"),
+        command=_decode_escaped_string(parser.get("serial", "command", fallback="xmt")),
+        termination=_decode_escaped_string(parser.get("serial", "termination", fallback="\r")),
         zero_frequency=parser.getfloat("serial", "zero_frequency", fallback=5.97e6),
     )
     app = AppSettings(
@@ -77,8 +88,8 @@ def save_settings(settings: Settings, path: Optional[Path] = None) -> Path:
         "port": settings.serial.port,
         "baudrate": str(settings.serial.baudrate),
         "timeout": str(settings.serial.timeout),
-        "command": settings.serial.command,
-        "termination": settings.serial.termination,
+        "command": _encode_escaped_string(settings.serial.command),
+        "termination": _encode_escaped_string(settings.serial.termination),
         "zero_frequency": str(settings.serial.zero_frequency),
     }
     parser["app"] = {

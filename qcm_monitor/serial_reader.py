@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import sys
 import time
 from typing import Optional
 
@@ -57,9 +56,9 @@ class SerialFrequencyReader:
 
         for attempt in range(5):
             try:
-                self.last_command = f"{self.settings.command}{self.settings.termination}"
-                print(f"[serial] attempt {attempt + 1}: sending {self.last_command!r}")
-                self._serial.write(self.last_command.encode("ascii"))
+                command_text = self.settings.command + self.settings.termination
+                self.last_command = command_text
+                self._serial.write(command_text.encode("ascii"))
                 time.sleep(0.1)
                 response = self._serial.read_until(expected=self.settings.termination.encode("ascii"))
                 self.last_raw_response = response.decode("ascii", errors="ignore").strip()
