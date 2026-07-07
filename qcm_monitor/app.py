@@ -59,13 +59,20 @@ class QCMApp:
         self.message_text.insert(tk.END, current_time.strftime("%H:%M:%S%z"))
         self.message_text.insert(tk.END, ": ")
 
-        last_freq = self.reader.read_frequency()
-        if last_freq:
-            last_freq -= self.settings.serial.zero_frequency
-        self.plotter.update_plot(last_freq)
+        print(f"[app] refresh cycle at {current_time.strftime('%H:%M:%S')}")
+        raw_freq = self.reader.read_frequency()
+        if raw_freq:
+            plotted_freq = raw_freq
+            display_freq = raw_freq - self.settings.serial.zero_frequency
+        else:
+            plotted_freq = 0.0
+            display_freq = 0.0
+        self.plotter.update_plot(plotted_freq)
 
-        self.message_text.insert(tk.END, "\nLast freq Hz: ")
-        self.message_text.insert(tk.END, f"{last_freq:.4f}")
+        self.message_text.insert(tk.END, "\nRaw freq Hz: ")
+        self.message_text.insert(tk.END, f"{raw_freq:.4f}")
+        self.message_text.insert(tk.END, "\nDisplay freq Hz: ")
+        self.message_text.insert(tk.END, f"{display_freq:.4f}")
         self.message_text.insert(tk.END, "\nDiff Hz/min: ")
         self.message_text.insert(tk.END, f"{self.plotter.diff_data[-1]:.4f}")
         self.message_text.insert(tk.END, "\nSlope (last 50 points) Hz/min: ")
@@ -84,15 +91,14 @@ class QCMApp:
             if self.time_left < 0:
                 winsound.Beep(2500, 1000)
 
-        if not self.plotter.freq_data or self.plotter.freq_data[-1] == 0.0:
-            detail = self.reader.last_error or "Waiting for serial data..."
-            self.message_text.insert(tk.END, f"\n{detail}")
-            if self.reader.last_command:
-                self.message_text.insert(tk.END, f"\nCommand: {self.reader.last_command}")
-            if self.reader.last_raw_response:
-                self.message_text.insert(tk.END, f"\nRaw response: {self.reader.last_raw_response}")
-            self.message_text.insert(tk.END, f"\nPort: {self.settings.serial.port}")
-            self.message_text.insert(tk.END, f"\nBaudrate: {self.settings.serial.baudrate}")
+        detail = self.reader.last_error or "Waiting for serial data..."
+        self.message_text.insert(tk.END, f"\n{detail}")
+        if self.reader.last_command:
+            self.message_text.insert(tk.END, f"\nCommand: {self.reader.last_command}")
+        if self.reader.last_raw_response:
+            self.message_text.insert(tk.END, f"\nRaw response: {self.reader.last_raw_response}")
+        self.message_text.insert(tk.END, f"\nPort: {self.settings.serial.port}")
+        self.message_text.insert(tk.END, f"\nBaudrate: {self.settings.serial.baudrate}")
 
         time_difference = datetime.now() - current_time
         new_time = int(time_difference.total_seconds() * 1000)
