@@ -37,17 +37,20 @@ class QCMApp:
         self.main_frame = tk.Frame(self.root)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.canvas = FigureCanvasTkAgg(self.plotter.fig, master=self.main_frame)
-        self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.plot_frame = tk.Frame(self.main_frame)
+        self.plot_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.side_frame = tk.Frame(self.main_frame)
-        self.side_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
+        self.canvas = FigureCanvasTkAgg(self.plotter.fig, master=self.plot_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        self.message_text = tk.Text(self.side_frame, height=20, width=44)
-        self.message_text.pack(fill=tk.BOTH, expand=True)
+        self.bottom_frame = tk.Frame(self.main_frame)
+        self.bottom_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
-        self.button_frame = tk.Frame(self.side_frame)
-        self.button_frame.pack(fill=tk.X, pady=(10, 0))
+        self.message_text = tk.Text(self.bottom_frame, height=18, width=60)
+        self.message_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.button_frame = tk.Frame(self.bottom_frame)
+        self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
 
         self.input_entry = tk.Entry(self.button_frame, width=12)
         self.start_button = tk.Button(self.button_frame, text="Start", width=10, command=self.button_start)
