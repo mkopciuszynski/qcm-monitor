@@ -19,7 +19,11 @@ class QCMApp:
     def __init__(self, settings_path: Optional[Path] = None) -> None:
         self.settings = load_settings(settings_path)
         self.reader = SerialFrequencyReader(self.settings.serial)
-        self.plotter = Plotter(gate_time_seconds=self.settings.app.gate_time_seconds)
+        self.plotter = Plotter(
+            short_diff_window_points=self.settings.app.short_velocity_window_points,
+            long_diff_window_points=self.settings.app.long_velocity_window_points,
+            gate_time_seconds=self.settings.app.gate_time_seconds,
+        )
         self.delta_freq: Optional[float] = None
         self.time_left: Optional[float] = None
         self.freq_left: Optional[float] = None
@@ -30,24 +34,33 @@ class QCMApp:
         self.root.geometry(f"{self.settings.app.window_width}x{self.settings.app.window_height}+0+0")
         self.root.protocol("WM_DELETE_WINDOW", self.exit_app)
 
-        self.canvas = FigureCanvasTkAgg(self.plotter.fig, master=self.root)
-        self.canvas.get_tk_widget().pack()
+        self.main_frame = tk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.message_text = tk.Text(self.root, height=25, width=60)
-        self.message_text.pack(side=tk.LEFT)
+        self.canvas = FigureCanvasTkAgg(self.plotter.fig, master=self.main_frame)
+        self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        self.button_frame = tk.Frame(self.root)
-        self.button_frame.pack(side=tk.LEFT, padx=20, fill="x")
+        self.side_frame = tk.Frame(self.main_frame)
+        self.side_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
 
-        self.reset_button = tk.Button(self.button_frame, text="Clear", width=10, command=self.button_reset)
-        self.input_entry = tk.Entry(self.button_frame, width=10)
+        self.message_text = tk.Text(self.side_frame, height=20, width=44)
+        self.message_text.pack(fill=tk.BOTH, expand=True)
+
+        self.button_frame = tk.Frame(self.side_frame)
+        self.button_frame.pack(fill=tk.X, pady=(10, 0))
+
+        self.input_entry = tk.Entry(self.button_frame, width=12)
         self.start_button = tk.Button(self.button_frame, text="Start", width=10, command=self.button_start)
+        self.reset_button = tk.Button(self.button_frame, text="Clear", width=10, command=self.button_reset)
         self.exit_button = tk.Button(self.button_frame, text="Exit", width=10, command=self.exit_app)
 
-        self.input_entry.grid(row=1, column=1, padx=2, pady=20)
-        self.start_button.grid(row=1, column=2, padx=2, pady=20)
-        self.reset_button.grid(row=2, column=1, padx=2, pady=20)
-        self.exit_button.grid(row=2, column=2, padx=2, pady=20)
+        self.input_entry.grid(row=0, column=0, padx=2, pady=4)
+        self.start_button.grid(row=0, column=1, padx=2, pady=4)
+        self.reset_button.grid(row=1, column=0, padx=2, pady=4)
+        self.exit_button.grid(row=1, column=1, padx=2, pady=4)
+
+        self.status_label = tk.Label(self.root, text="", anchor=tk.W)
+        self.status_label.pack(fill=tk.X, padx=10, pady=(0, 10))
 
         self.root.after(100, self._refresh_status)
 
@@ -63,21 +76,21 @@ class QCMApp:
         print(f"[app] refresh cycle at {current_time.strftime('%H:%M:%S')}")
         raw_freq = self.reader.read_frequency()
         plotted_freq, display_freq = self._resolve_frequency(raw_freq)
-        self.plotter.update_plot(plotted_freq)
+        self.plotter.update_plot(display_freq)
 
         self.message_text.insert(tk.END, "\nRaw freq Hz: ")
         self.message_text.insert(tk.END, f"{raw_freq:.4f}")
         self.message_text.insert(tk.END, "\nDisplay freq Hz: ")
         self.message_text.insert(tk.END, f"{display_freq:.4f}")
-        self.message_text.insert(tk.END, "\nDiff Hz/min: ")
-        self.message_text.insert(tk.END, f"{self.plotter.diff_data[-1]:.4f}")
-        self.message_text.insert(tk.END, "\nSlope (last 50 points) Hz/min: ")
-        self.message_text.insert(tk.END, f"{self.plotter.slope:.4f}")
+        self.message_text.insert(tk.END, "\nShort velocity Hz/min: ")
+        self.message_text.insert(tk.END, f"{self.plotter.short_diff_data[-1]:.4f}")
+        self.message_text.insert(tk.END, "\nLong velocity Hz/min: ")
+        self.message_text.insert(tk.END, f"{self.plotter.long_diff_data[-1]:.4f}")
         self.message_text.insert(tk.END, "\n")
 
-        if self.plotter.finish_freq > 0 and self.plotter.diff_data:
+        if self.plotter.finish_freq > 0 and self.plotter.short_diff_data:
             self.freq_left = self.plotter.freq_data[-1] - self.plotter.finish_freq
-            self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.diff_data[-1]
+            self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.short_diff_data[-1]
             self.message_text.insert(tk.END, "\nFreq left [Hz]: ")
             self.message_text.insert(tk.END, f"{self.freq_left:.2f}")
             self.message_text.insert(tk.END, "\nTime left [min]: ")
@@ -91,8 +104,7 @@ class QCMApp:
         self.message_text.insert(tk.END, f"\n{detail}")
         if self.reader.last_raw_response:
             self.message_text.insert(tk.END, f"\nRaw response: {self.reader.last_raw_response}")
-        self.message_text.insert(tk.END, f"\nPort: {self.settings.serial.port}")
-        self.message_text.insert(tk.END, f"\nBaudrate: {self.settings.serial.baudrate}")
+        self.status_label.config(text=f"Port: {self.settings.serial.port} | Baudrate: {self.settings.serial.baudrate}")
 
         time_difference = datetime.now() - current_time
         new_time = int(time_difference.total_seconds() * 1000)
@@ -103,6 +115,10 @@ class QCMApp:
     def exit_app(self) -> None:
         self.reader.close()
         self.root.destroy()
+
+    def _parse_decimal(self, value: str) -> float:
+        normalized = value.replace(",", ".")
+        return float(normalized)
 
     def _relative_frequency(self, raw_freq: float) -> float:
         if self.reference_freq is None:
@@ -135,7 +151,7 @@ class QCMApp:
     def button_start(self) -> None:
         self.message_text.insert(tk.END, "\n======Start======\n")
         try:
-            self.delta_freq = float(self.input_entry.get())
+            self.delta_freq = self._parse_decimal(self.input_entry.get())
         except ValueError:
             self.delta_freq = 0.0
         if self.delta_freq is not None:

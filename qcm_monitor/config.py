@@ -13,14 +13,15 @@ class SerialSettings:
     timeout: float = 1.0
     command: str = "xmt"
     termination: str = "\r"
-    zero_frequency: float = 6.0e6
 
 
 @dataclass
 class AppSettings:
     gate_time_seconds: int = 5
-    window_width: int = 700
-    window_height: int = 1000
+    window_width: int = 600
+    window_height: int = 900
+    short_velocity_window_points: int = 5
+    long_velocity_window_points: int = 20
     beep_threshold_minutes: float = 1.0
     beep_duration_ms: int = 100
     beep_warning_ms: int = 1000
@@ -68,12 +69,13 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         timeout=parser.getfloat("serial", "timeout", fallback=1.0),
         command=_decode_escaped_string(parser.get("serial", "command", fallback="xmt")),
         termination=_decode_escaped_string(parser.get("serial", "termination", fallback="\r")),
-        zero_frequency=parser.getfloat("serial", "zero_frequency", fallback=5.97e6),
     )
     app = AppSettings(
         gate_time_seconds=parser.getint("app", "gate_time_seconds", fallback=5),
-        window_width=parser.getint("app", "window_width", fallback=700),
-        window_height=parser.getint("app", "window_height", fallback=1000),
+        window_width=parser.getint("app", "window_width", fallback=600),
+        window_height=parser.getint("app", "window_height", fallback=900),
+        short_velocity_window_points=parser.getint("app", "short_velocity_window_points", fallback=5),
+        long_velocity_window_points=parser.getint("app", "long_velocity_window_points", fallback=20),
         beep_threshold_minutes=parser.getfloat("app", "beep_threshold_minutes", fallback=1.0),
         beep_duration_ms=parser.getint("app", "beep_duration_ms", fallback=100),
         beep_warning_ms=parser.getint("app", "beep_warning_ms", fallback=1000),
@@ -90,12 +92,13 @@ def save_settings(settings: Settings, path: Optional[Path] = None) -> Path:
         "timeout": str(settings.serial.timeout),
         "command": _encode_escaped_string(settings.serial.command),
         "termination": _encode_escaped_string(settings.serial.termination),
-        "zero_frequency": str(settings.serial.zero_frequency),
     }
     parser["app"] = {
         "gate_time_seconds": str(settings.app.gate_time_seconds),
         "window_width": str(settings.app.window_width),
         "window_height": str(settings.app.window_height),
+        "short_velocity_window_points": str(settings.app.short_velocity_window_points),
+        "long_velocity_window_points": str(settings.app.long_velocity_window_points),
         "beep_threshold_minutes": str(settings.app.beep_threshold_minutes),
         "beep_duration_ms": str(settings.app.beep_duration_ms),
         "beep_warning_ms": str(settings.app.beep_warning_ms),

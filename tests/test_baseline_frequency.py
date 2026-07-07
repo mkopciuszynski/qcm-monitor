@@ -22,6 +22,12 @@ class BaselineFrequencyTests(unittest.TestCase):
         self.assertEqual(raw_freq, 100.0)
         self.assertEqual(display_freq, 0.0)
 
+    def test_decimal_input_accepts_comma_and_dot(self) -> None:
+        app = QCMApp.__new__(QCMApp)
+
+        self.assertEqual(app._parse_decimal("12.5"), 12.5)
+        self.assertEqual(app._parse_decimal("12,5"), 12.5)
+
 
 if __name__ == "__main__":
     unittest.main()
