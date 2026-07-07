@@ -7,8 +7,15 @@ import matplotlib.pyplot as plt
 class Plotter:
     """Manage the frequency and slope plots."""
 
-    def __init__(self, short_diff_window_points: int = 5, long_diff_window_points: int = 20, gate_time_seconds: int = 5) -> None:
+    def __init__(
+        self,
+        short_diff_window_points: int = 5,
+        average_diff_window_points: int = 20,
+        long_diff_window_points: int = 50,
+        gate_time_seconds: int = 5,
+    ) -> None:
         self.short_diff_window_points = short_diff_window_points
+        self.average_diff_window_points = average_diff_window_points
         self.long_diff_window_points = long_diff_window_points
         self.gate_time_seconds = gate_time_seconds
 
@@ -43,6 +50,14 @@ class Plotter:
         else:
             self.short_diff_data.append(float("nan"))
 
+        if len(self.time) > self.average_diff_window_points:
+            x_last = self.time[-self.average_diff_window_points:]
+            y_last = self.freq_data[-self.average_diff_window_points:]
+            slope, _ = np.polyfit(x_last, y_last, 1)
+            self.average_diff_data.append(slope * 60)
+        else:
+            self.average_diff_data.append(float("nan"))
+
         if len(self.time) > self.long_diff_window_points:
             x_last = self.time[-self.long_diff_window_points:]
             y_last = self.freq_data[-self.long_diff_window_points:]
@@ -51,22 +66,12 @@ class Plotter:
         else:
             self.long_diff_data.append(float("nan"))
 
-        if len(self.time) > 50:
-            x_last = self.time[-50:]
-            y_last = self.freq_data[-50:]
-            slope, _ = np.polyfit(x_last, y_last, 1)
-            self.average_diff_data.append(slope * 60)
-        else:
-            self.average_diff_data.append(float("nan"))
-
         self.slope = self.average_diff_data[-1]
 
         ax = self.axs[0]
         ax.relim()
         ax.autoscale_view()
         ax.plot(self.time[-1], self.freq_data[-1], ".b")
-        if len(self.time) >= 50:
-            ax.axvline(x=self.time[-50], color="gray", linestyle="--", linewidth=0.8)
 
         ax = self.axs[1]
         ax.relim()

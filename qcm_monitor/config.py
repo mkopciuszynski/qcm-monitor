@@ -20,11 +20,13 @@ class AppSettings:
     gate_time_seconds: int = 5
     window_width: int = 600
     window_height: int = 900
-    short_velocity_window_points: int = 5
-    long_velocity_window_points: int = 20
+    short_slope_window_points: int = 5
+    average_slope_window_points: int = 20
+    long_slope_window_points: int = 50
     beep_threshold_minutes: float = 1.0
     beep_duration_ms: int = 100
     beep_warning_ms: int = 1000
+    beep_every_seconds: int = 5
 
 
 @dataclass
@@ -74,11 +76,13 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         gate_time_seconds=parser.getint("app", "gate_time_seconds", fallback=5),
         window_width=parser.getint("app", "window_width", fallback=600),
         window_height=parser.getint("app", "window_height", fallback=900),
-        short_velocity_window_points=parser.getint("app", "short_velocity_window_points", fallback=5),
-        long_velocity_window_points=parser.getint("app", "long_velocity_window_points", fallback=20),
+        short_slope_window_points=parser.getint("app", "short_slope_window_points", fallback=5),
+        average_slope_window_points=parser.getint("app", "average_slope_window_points", fallback=20),
+        long_slope_window_points=parser.getint("app", "long_slope_window_points", fallback=50),
         beep_threshold_minutes=parser.getfloat("app", "beep_threshold_minutes", fallback=1.0),
         beep_duration_ms=parser.getint("app", "beep_duration_ms", fallback=100),
         beep_warning_ms=parser.getint("app", "beep_warning_ms", fallback=1000),
+        beep_every_seconds=parser.getint("app", "beep_every_seconds", fallback=5),
     )
     return Settings(serial=serial, app=app)
 
@@ -97,11 +101,13 @@ def save_settings(settings: Settings, path: Optional[Path] = None) -> Path:
         "gate_time_seconds": str(settings.app.gate_time_seconds),
         "window_width": str(settings.app.window_width),
         "window_height": str(settings.app.window_height),
-        "short_velocity_window_points": str(settings.app.short_velocity_window_points),
-        "long_velocity_window_points": str(settings.app.long_velocity_window_points),
+        "short_slope_window_points": str(settings.app.short_slope_window_points),
+        "average_slope_window_points": str(settings.app.average_slope_window_points),
+        "long_slope_window_points": str(settings.app.long_slope_window_points),
         "beep_threshold_minutes": str(settings.app.beep_threshold_minutes),
         "beep_duration_ms": str(settings.app.beep_duration_ms),
         "beep_warning_ms": str(settings.app.beep_warning_ms),
+        "beep_every_seconds": str(settings.app.beep_every_seconds),
     }
     with config_path.open("w", encoding="utf-8") as handle:
         parser.write(handle)

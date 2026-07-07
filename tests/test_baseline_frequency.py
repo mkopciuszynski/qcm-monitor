@@ -1,6 +1,8 @@
+import math
 import unittest
 
 from qcm_monitor.app import QCMApp
+from qcm_monitor.plotter import Plotter
 
 
 class BaselineFrequencyTests(unittest.TestCase):
@@ -27,6 +29,13 @@ class BaselineFrequencyTests(unittest.TestCase):
 
         self.assertEqual(app._parse_decimal("12.5"), 12.5)
         self.assertEqual(app._parse_decimal("12,5"), 12.5)
+
+    def test_plotter_average_window_uses_configured_points(self) -> None:
+        plotter = Plotter(short_diff_window_points=2, long_diff_window_points=4, average_diff_window_points=3, gate_time_seconds=1)
+        for freq in [0.0, 1.0, 2.0, 3.0]:
+            plotter.update_plot(freq)
+
+        self.assertFalse(math.isnan(plotter.average_diff_data[-1]))
 
 
 if __name__ == "__main__":

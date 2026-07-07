@@ -20,14 +20,17 @@ class QCMApp:
         self.settings = load_settings(settings_path)
         self.reader = SerialFrequencyReader(self.settings.serial)
         self.plotter = Plotter(
-            short_diff_window_points=self.settings.app.short_velocity_window_points,
-            long_diff_window_points=self.settings.app.long_velocity_window_points,
+            short_diff_window_points=self.settings.app.short_slope_window_points,
+            average_diff_window_points=self.settings.app.average_slope_window_points,
+            long_diff_window_points=self.settings.app.long_slope_window_points,
             gate_time_seconds=self.settings.app.gate_time_seconds,
         )
         self.delta_freq: Optional[float] = None
         self.time_left: Optional[float] = None
         self.freq_left: Optional[float] = None
         self.reference_freq: Optional[float] = None
+        self.last_beep_time: Optional[datetime] = None
+        self.started_deposition = False
 
         self.root = tk.Tk()
         self.root.title("QCM Monitor")
@@ -85,31 +88,34 @@ class QCMApp:
         self.message_text.insert(tk.END, f"{raw_freq:.4f}")
         self.message_text.insert(tk.END, "\nDisplay freq Hz: ")
         self.message_text.insert(tk.END, f"{display_freq:.4f}")
-        self.message_text.insert(tk.END, "\nShort slope (5 pts) Hz/min: ")
+        self.message_text.insert(tk.END, f"\nShort slope ({self.settings.app.short_slope_window_points} pts) Hz/min: ")
         self.message_text.insert(tk.END, f"{self.plotter.short_diff_data[-1]:.4f}")
-        self.message_text.insert(tk.END, "\nAverage slope (20 pts) Hz/min: ")
-        self.message_text.insert(tk.END, f"{self.plotter.long_diff_data[-1]:.4f}")
-        self.message_text.insert(tk.END, "\nLong slope (50 pts) Hz/min: ")
+        self.message_text.insert(tk.END, f"\nAverage slope ({self.settings.app.average_slope_window_points} pts) Hz/min: ")
         self.message_text.insert(tk.END, f"{self.plotter.average_diff_data[-1]:.4f}")
+        self.message_text.insert(tk.END, f"\nLong slope ({self.settings.app.long_slope_window_points} pts) Hz/min: ")
+        self.message_text.insert(tk.END, f"{self.plotter.long_diff_data[-1]:.4f}")
         self.message_text.insert(tk.END, "\n")
 
         if self.plotter.finish_freq > 0 and self.plotter.short_diff_data:
             self.freq_left = self.plotter.freq_data[-1] - self.plotter.finish_freq
-            if self.plotter.short_diff_data[-1] not in (None, float("nan")) and self.plotter.short_diff_data[-1] != 0:
-                self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.short_diff_data[-1]
+            if self.plotter.average_diff_data and self.plotter.average_diff_data[-1] not in (None, float("nan")) and self.plotter.average_diff_data[-1] != 0:
+                self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.average_diff_data[-1]
             else:
                 self.time_left = None
-            self.message_text.insert(tk.END, "\nFreq left [Hz]: ")
+            self.message_text.insert(tk.END, "\nHz left: ")
             self.message_text.insert(tk.END, f"{self.freq_left:.2f}")
-            self.message_text.insert(tk.END, "\nTime left [min]: ")
+            self.message_text.insert(tk.END, "\nMin left: ")
             self.message_text.insert(tk.END, f"{self.time_left:.2f}" if self.time_left is not None else "n/a")
-            if self.time_left is not None and self.time_left < 1:
-                winsound.Beep(2500, 100)
-            if self.time_left is not None and self.time_left < 0:
-                winsound.Beep(2500, 1000)
+            if self.time_left is not None and self.time_left < 1 and self.started_deposition:
+                if self.last_beep_time is None or (current_time - self.last_beep_time).total_seconds() >= self.settings.app.beep_every_seconds:
+                    winsound.Beep(2500, self.settings.app.beep_duration_ms)
+                    self.last_beep_time = current_time
+            if self.time_left is not None and self.time_left < 0 and self.started_deposition:
+                winsound.Beep(2500, self.settings.app.beep_warning_ms)
 
-        detail = self.reader.last_error or "Waiting for serial data..."
-        self.message_text.insert(tk.END, f"\n{detail}")
+        detail = self.reader.last_error or ""
+        if detail:
+            self.message_text.insert(tk.END, f"\n{detail}")
         if self.reader.last_raw_response:
             self.message_text.insert(tk.END, f"\nRaw response: {self.reader.last_raw_response}")
         self.status_label.config(text=f"Port: {self.settings.serial.port} | Baudrate: {self.settings.serial.baudrate}")
@@ -164,16 +170,17 @@ class QCMApp:
             self.delta_freq = 0.0
         if self.delta_freq is not None:
             self.plotter.finish_line_plot(self.delta_freq)
+            self.started_deposition = True
+            self.last_beep_time = None
             if self.plotter.freq_data:
                 start_freq = self.plotter.freq_data[-1]
                 self.message_text.insert(tk.END, f"\nStart freq (real): {start_freq:.4f} Hz\n")
-                if self.plotter.short_diff_data:
-                    slope = self.plotter.short_diff_data[-1]
-                    if slope:
-                        remaining_time = -(self.plotter.finish_freq - start_freq) / slope
-                        remaining_hz = self.plotter.finish_freq - start_freq
-                        self.message_text.insert(tk.END, f"Hz left: {remaining_hz:.4f}\n")
-                        self.message_text.insert(tk.END, f"Min left: {remaining_time:.4f}\n")
+                if self.plotter.average_diff_data and self.plotter.average_diff_data[-1] not in (None, float("nan")) and self.plotter.average_diff_data[-1] != 0:
+                    slope = self.plotter.average_diff_data[-1]
+                    remaining_time = -(self.plotter.finish_freq - start_freq) / slope
+                    remaining_hz = self.plotter.finish_freq - start_freq
+                    self.message_text.insert(tk.END, f"Hz left: {remaining_hz:.4f}\n")
+                    self.message_text.insert(tk.END, f"Min left: {remaining_time:.4f}\n")
 
 
 def create_app(settings_path: Optional[Path] = None) -> QCMApp:
