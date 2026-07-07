@@ -90,7 +90,8 @@ class QCMApp:
                 if self.time_left < 0:
                     winsound.Beep(2500, self.settings.app.beep_warning_ms)
         else:
-            self.message_text.insert(tk.END, "\nWaiting for serial data...")
+            detail = self.reader.last_error or "Waiting for serial data..."
+            self.message_text.insert(tk.END, f"\n{detail}")
 
     def exit_app(self) -> None:
         self.reader.close()
