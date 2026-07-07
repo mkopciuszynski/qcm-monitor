@@ -46,21 +46,21 @@ class QCMApp:
         self.bottom_frame = tk.Frame(self.main_frame)
         self.bottom_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
-        self.message_text = tk.Text(self.bottom_frame, height=18, width=60)
+        self.message_text = tk.Text(self.bottom_frame, height=14, width=40)
         self.message_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.button_frame = tk.Frame(self.bottom_frame)
-        self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
+        self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
 
-        self.input_entry = tk.Entry(self.button_frame, width=12)
-        self.start_button = tk.Button(self.button_frame, text="Start", width=10, command=self.button_start)
-        self.reset_button = tk.Button(self.button_frame, text="Clear", width=10, command=self.button_reset)
-        self.exit_button = tk.Button(self.button_frame, text="Exit", width=10, command=self.exit_app)
+        self.input_entry = tk.Entry(self.button_frame, width=10)
+        self.start_button = tk.Button(self.button_frame, text="Start", width=8, command=self.button_start)
+        self.reset_button = tk.Button(self.button_frame, text="Clear", width=8, command=self.button_reset)
+        self.exit_button = tk.Button(self.button_frame, text="Exit", width=8, command=self.exit_app)
 
-        self.input_entry.grid(row=0, column=0, padx=2, pady=4)
-        self.start_button.grid(row=0, column=1, padx=2, pady=4)
-        self.reset_button.grid(row=1, column=0, padx=2, pady=4)
-        self.exit_button.grid(row=1, column=1, padx=2, pady=4)
+        self.input_entry.grid(row=0, column=0, padx=2, pady=3)
+        self.start_button.grid(row=0, column=1, padx=2, pady=3)
+        self.reset_button.grid(row=1, column=0, padx=2, pady=3)
+        self.exit_button.grid(row=1, column=1, padx=2, pady=3)
 
         self.status_label = tk.Label(self.root, text="", anchor=tk.W)
         self.status_label.pack(fill=tk.X, padx=10, pady=(0, 10))
