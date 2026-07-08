@@ -37,6 +37,17 @@ class BaselineFrequencyTests(unittest.TestCase):
 
         self.assertFalse(math.isnan(plotter.average_diff_data[-1]))
 
+    def test_plotter_keeps_only_last_hour_of_samples(self) -> None:
+        plotter = Plotter(gate_time_seconds=5)
+        for freq in range(800):
+            plotter.update_plot(float(freq))
+
+        self.assertEqual(len(plotter.time), 720)
+        self.assertEqual(len(plotter.freq_data), 720)
+        self.assertEqual(len(plotter.short_diff_data), 720)
+        self.assertEqual(len(plotter.average_diff_data), 720)
+        self.assertEqual(len(plotter.long_diff_data), 720)
+
 
 if __name__ == "__main__":
     unittest.main()

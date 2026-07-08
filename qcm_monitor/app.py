@@ -86,20 +86,18 @@ class QCMApp:
 
         self.message_text.insert(tk.END, "\nRaw freq Hz: ")
         self.message_text.insert(tk.END, f"{raw_freq:.4f}")
-        self.message_text.insert(tk.END, "\nDisplay freq Hz: ")
+        self.message_text.insert(tk.END, "\nRelative freq Hz: ")
         self.message_text.insert(tk.END, f"{display_freq:.4f}")
-        self.message_text.insert(tk.END, f"\nShort slope ({self.settings.app.short_slope_window_points} pts) Hz/min: ")
-        self.message_text.insert(tk.END, f"{self.plotter.short_diff_data[-1]:.4f}")
-        self.message_text.insert(tk.END, f"\nAverage slope ({self.settings.app.average_slope_window_points} pts) Hz/min: ")
+        self.message_text.insert(tk.END, f"\nSlope ({self.settings.app.average_slope_window_points} pts) Hz/min: ")
         self.message_text.insert(tk.END, f"{self.plotter.average_diff_data[-1]:.4f}")
         self.message_text.insert(tk.END, f"\nLong slope ({self.settings.app.long_slope_window_points} pts) Hz/min: ")
         self.message_text.insert(tk.END, f"{self.plotter.long_diff_data[-1]:.4f}")
         self.message_text.insert(tk.END, "\n")
 
-        if self.plotter.finish_freq > 0 and self.plotter.short_diff_data:
-            self.freq_left = self.plotter.freq_data[-1] - self.plotter.finish_freq
+        if self.started_deposition and self.plotter.freq_data:
+            self.freq_left = abs(self.plotter.freq_data[-1] - self.plotter.finish_freq)
             if self.plotter.average_diff_data and self.plotter.average_diff_data[-1] not in (None, float("nan")) and self.plotter.average_diff_data[-1] != 0:
-                self.time_left = -(self.plotter.freq_data[-1] - self.plotter.finish_freq) / self.plotter.average_diff_data[-1]
+                self.time_left = self.freq_left / abs(self.plotter.average_diff_data[-1])
             else:
                 self.time_left = None
             self.message_text.insert(tk.END, "\nHz left: ")
@@ -160,6 +158,11 @@ class QCMApp:
     def button_reset(self) -> None:
         self.plotter.clear_plot()
         self.reference_freq = None
+        self.delta_freq = None
+        self.freq_left = None
+        self.time_left = None
+        self.started_deposition = False
+        self.last_beep_time = None
         self.message_text.insert(tk.END, "\n======Clear======\n")
 
     def button_start(self) -> None:
