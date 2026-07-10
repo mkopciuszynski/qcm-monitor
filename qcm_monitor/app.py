@@ -32,10 +32,10 @@ class QCMApp:
         mpl.rcParams['text.color'] = '#ffffff'
 
         # Small font rules:
-        mpl.rcParams['font.size'] = 9          
-        mpl.rcParams['axes.labelsize'] = 9     
-        mpl.rcParams['xtick.labelsize'] = 8    
-        mpl.rcParams['ytick.labelsize'] = 8
+        mpl.rcParams['font.size'] = 10          
+        mpl.rcParams['axes.labelsize'] = 10     
+        mpl.rcParams['xtick.labelsize'] = 9    
+        mpl.rcParams['ytick.labelsize'] = 9
 
         self.plotter = Plotter(
             short_diff_window_points=self.settings.app.short_slope_window_points,
@@ -75,7 +75,7 @@ class QCMApp:
             anchor=tk.W,
             bg=WIDGET_BG,
             fg=TEXT_COLOR,
-            font=("Courier", 9)
+            font=("Courier", 10)
         )
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -114,13 +114,13 @@ class QCMApp:
         ]
 
         for idx, (label_txt, var_key) in enumerate(labels_text):
-            lbl = tk.Label(self.dashboard_frame, text=label_txt, bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 9, "bold"))
+            lbl = tk.Label(self.dashboard_frame, text=label_txt, bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 10, "bold"))
             lbl.grid(row=idx, column=0, sticky=tk.W, padx=5, pady=6)
             
             entry = tk.Entry(
                 self.dashboard_frame, textvariable=self.telemetry_vars[var_key], 
                 width=18, bg=WIDGET_BG, fg=ACCENT_COLOR, readonlybackground=WIDGET_BG,
-                font=("Courier", 10, "bold"), state="readonly", bd=1, relief=tk.SOLID
+                font=("Courier", 11, "bold"), state="readonly", bd=1, relief=tk.SOLID
             )
             entry.grid(row=idx, column=1, sticky=tk.W, padx=10, pady=6)
 
@@ -128,7 +128,7 @@ class QCMApp:
         self.button_frame = tk.Frame(self.bottom_frame, bg=BG_COLOR)
         self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 0))
 
-        self.entry_label = tk.Label(self.button_frame, text="Target ΔF (Hz):", bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 9, "bold"))
+        self.entry_label = tk.Label(self.button_frame, text="Target ΔF (Hz):", bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 10, "bold"))
         
         # --- STYLED TO MATCH THE TELEMETRY ENTRIES ---
         self.input_entry = tk.Entry(
@@ -211,8 +211,8 @@ class QCMApp:
                 if self.time_left < 0:
                     winsound.Beep(2500, self.settings.app.beep_warning_ms)
         else:
-            self.telemetry_vars["hz_left"].set("N/A")
-            self.telemetry_vars["min_left"].set("N/A")
+            self.telemetry_vars["hz_left"].set("waiting")
+            self.telemetry_vars["min_left"].set("waiting")
 
         # 1. Calculate execution loop cycle time
         time_difference = datetime.now() - current_time
@@ -273,8 +273,15 @@ class QCMApp:
         self.telemetry_vars["rel_freq"].set("0.0000")
         self.telemetry_vars["slope"].set("0.0000")
         self.telemetry_vars["long_slope"].set("0.0000")
-        self.telemetry_vars["hz_left"].set("N/A")
-        self.telemetry_vars["min_left"].set("N/A")
+        self.telemetry_vars["hz_left"].set("waiting")
+        self.telemetry_vars["min_left"].set("waiting")
+
+        # --- RESTORE START BUTTON TO NORMAL ---
+        self.start_button.config(
+            relief=tk.RAISED, 
+            bg="#3e3e3e",       # Original BTN_BG color
+            state="normal"      # Re-enable interactivity
+        )
 
     def button_start(self) -> None:
         try:
@@ -294,6 +301,13 @@ class QCMApp:
                     slope = self.plotter.average_diff_data[-1]
                     remaining_time = -(self.plotter.finish_freq - start_freq) / slope
                     remaining_hz = self.plotter.finish_freq - start_freq
+
+        self.start_button.config(
+            relief=tk.SUNKEN, 
+            bg="#2d2d2d",       # Darker background to look deflated/inactive
+            state="disabled",   # Prevents accidental double clicks
+            disabledforeground="#FF0000" # Dimmed text color while pressed
+        )
 
 
 def create_app(settings_path: Optional[Path] = None) -> QCMApp:
