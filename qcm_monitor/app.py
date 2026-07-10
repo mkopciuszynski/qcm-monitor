@@ -5,6 +5,7 @@ import winsound
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+import matplotlib as mpl
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
@@ -19,6 +20,18 @@ class QCMApp:
     def __init__(self, settings_path: Optional[Path] = None) -> None:
         self.settings = load_settings(settings_path)
         self.reader = SerialFrequencyReader(self.settings.serial)
+        
+        # --- 1. SET MATPLOTLIB DARK STYLE BEFORE INITIALIZING PLOTTER ---
+        
+        mpl.rcParams['figure.facecolor'] = '#1e1e1e'
+        mpl.rcParams['axes.facecolor'] = '#1e1e1e'
+        mpl.rcParams['axes.edgecolor'] = '#ffffff'
+        mpl.rcParams['axes.labelcolor'] = '#ffffff'
+        mpl.rcParams['xtick.color'] = '#ffffff'
+        mpl.rcParams['ytick.color'] = '#ffffff'
+        mpl.rcParams['grid.color'] = '#444444'
+        mpl.rcParams['text.color'] = '#ffffff'
+
         self.plotter = Plotter(
             short_diff_window_points=self.settings.app.short_slope_window_points,
             average_diff_window_points=self.settings.app.average_slope_window_points,
@@ -32,40 +45,55 @@ class QCMApp:
         self.last_beep_time: Optional[datetime] = None
         self.started_deposition = False
 
+        # --- 2. DEFINE DARK PALETTE ---
+        BG_COLOR = "#1e1e1e"      # Dark grey window background
+        WIDGET_BG = "#2d2d2d"     # Slightly lighter grey for entry/text/buttons
+        TEXT_COLOR = "#ffffff"    # White text
+        BTN_BG = "#3e3e3e"        # Grey button background
+
         self.root = tk.Tk()
         self.root.title("QCM Monitor")
+        self.root.configure(bg=BG_COLOR)  # Make main window dark
         self.root.geometry(f"{self.settings.app.window_width}x{self.settings.app.window_height}+0+0")
         self.root.protocol("WM_DELETE_WINDOW", self.exit_app)
 
-        self.main_frame = tk.Frame(self.root)
+        # Apply dark background to frames
+        self.main_frame = tk.Frame(self.root, bg=BG_COLOR)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.plot_frame = tk.Frame(self.main_frame)
+        self.plot_frame = tk.Frame(self.main_frame, bg=BG_COLOR)
         self.plot_frame.pack(fill=tk.BOTH, expand=True)
 
         self.canvas = FigureCanvasTkAgg(self.plotter.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        self.bottom_frame = tk.Frame(self.main_frame)
+        self.bottom_frame = tk.Frame(self.main_frame, bg=BG_COLOR)
         self.bottom_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
-        self.message_text = tk.Text(self.bottom_frame, height=14, width=40)
+        # --- 3. STYLE TEXT BOX AND INPUTS ---
+        self.message_text = tk.Text(
+            self.bottom_frame, height=14, width=40, 
+            bg=WIDGET_BG, fg=TEXT_COLOR, insertbackground=TEXT_COLOR, bd=0
+        )
         self.message_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        self.button_frame = tk.Frame(self.bottom_frame)
+        self.button_frame = tk.Frame(self.bottom_frame, bg=BG_COLOR)
         self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
 
-        self.input_entry = tk.Entry(self.button_frame, width=10)
-        self.start_button = tk.Button(self.button_frame, text="Start", width=8, command=self.button_start)
-        self.reset_button = tk.Button(self.button_frame, text="Clear", width=8, command=self.button_reset)
-        self.exit_button = tk.Button(self.button_frame, text="Exit", width=8, command=self.exit_app)
+        self.input_entry = tk.Entry(
+            self.button_frame, width=10, 
+            bg=WIDGET_BG, fg=TEXT_COLOR, insertbackground=TEXT_COLOR, bd=1
+        )
+        self.start_button = tk.Button(self.button_frame, text="Start", width=8, command=self.button_start, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
+        self.reset_button = tk.Button(self.button_frame, text="Clear", width=8, command=self.button_reset, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
+        self.exit_button = tk.Button(self.button_frame, text="Exit", width=8, command=self.exit_app, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
 
         self.input_entry.grid(row=0, column=0, padx=2, pady=3)
         self.start_button.grid(row=0, column=1, padx=2, pady=3)
         self.reset_button.grid(row=1, column=0, padx=2, pady=3)
         self.exit_button.grid(row=1, column=1, padx=2, pady=3)
 
-        self.status_label = tk.Label(self.root, text="", anchor=tk.W)
+        self.status_label = tk.Label(self.root, text="", anchor=tk.W, bg=BG_COLOR, fg=TEXT_COLOR)
         self.status_label.pack(fill=tk.X, padx=10, pady=(0, 10))
 
         self.root.after(100, self._refresh_status)
@@ -88,28 +116,44 @@ class QCMApp:
         self.message_text.insert(tk.END, f"{raw_freq:.4f}")
         self.message_text.insert(tk.END, "\nRelative freq Hz: ")
         self.message_text.insert(tk.END, f"{display_freq:.4f}")
+        
+        avg_slope = self.plotter.average_diff_data[-1] if self.plotter.average_diff_data else 0.0
+        long_slope = self.plotter.long_diff_data[-1] if self.plotter.long_diff_data else 0.0
+        
         self.message_text.insert(tk.END, f"\nSlope ({self.settings.app.average_slope_window_points} pts) Hz/min: ")
-        self.message_text.insert(tk.END, f"{self.plotter.average_diff_data[-1]:.4f}")
+        self.message_text.insert(tk.END, f"{avg_slope:.4f}")
         self.message_text.insert(tk.END, f"\nLong slope ({self.settings.app.long_slope_window_points} pts) Hz/min: ")
-        self.message_text.insert(tk.END, f"{self.plotter.long_diff_data[-1]:.4f}")
+        self.message_text.insert(tk.END, f"{long_slope:.4f}")
         self.message_text.insert(tk.END, "\n")
 
-        if self.started_deposition and self.plotter.freq_data:
-            self.freq_left = abs(self.plotter.freq_data[-1] - self.plotter.finish_freq)
-            if self.plotter.average_diff_data and self.plotter.average_diff_data[-1] not in (None, float("nan")) and self.plotter.average_diff_data[-1] != 0:
-                self.time_left = self.freq_left / abs(self.plotter.average_diff_data[-1])
+        # ALWAYS show deposition variables immediately if deposition mode is engaged
+        if self.started_deposition:
+            finish_freq = getattr(self.plotter, "finish_freq", 0)
+            
+            if self.plotter.freq_data:
+                self.freq_left = abs(self.plotter.freq_data[-1] - finish_freq)
+            else:
+                # Fallback calculation if array hasn't filled yet
+                self.freq_left = abs(display_freq - finish_freq)
+
+            if avg_slope not in (None, float("nan")) and avg_slope != 0:
+                self.time_left = self.freq_left / abs(avg_slope)
             else:
                 self.time_left = None
+                
             self.message_text.insert(tk.END, "\nHz left: ")
             self.message_text.insert(tk.END, f"{self.freq_left:.2f}")
             self.message_text.insert(tk.END, "\nMin left: ")
-            self.message_text.insert(tk.END, f"{self.time_left:.2f}" if self.time_left is not None else "n/a")
-            if self.time_left is not None and self.time_left < 1 and self.started_deposition:
-                if self.last_beep_time is None or (current_time - self.last_beep_time).total_seconds() >= self.settings.app.beep_every_seconds:
-                    winsound.Beep(2500, self.settings.app.beep_duration_ms)
-                    self.last_beep_time = current_time
-            if self.time_left is not None and self.time_left < 0 and self.started_deposition:
-                winsound.Beep(2500, self.settings.app.beep_warning_ms)
+            self.message_text.insert(tk.END, f"{self.time_left:.2f}" if self.time_left is not None else "Calculating...")
+            
+            # Isolated audio warning triggers
+            if self.time_left is not None:
+                if self.time_left < 1:
+                    if self.last_beep_time is None or (current_time - self.last_beep_time).total_seconds() >= self.settings.app.beep_every_seconds:
+                        winsound.Beep(2500, self.settings.app.beep_duration_ms)
+                        self.last_beep_time = current_time
+                if self.time_left < 0:
+                    winsound.Beep(2500, self.settings.app.beep_warning_ms)
 
         detail = self.reader.last_error or ""
         if detail:
@@ -163,14 +207,15 @@ class QCMApp:
         self.time_left = None
         self.started_deposition = False
         self.last_beep_time = None
+        self.message_text.delete(1.0, tk.END)
         self.message_text.insert(tk.END, "\n======Clear======\n")
 
     def button_start(self) -> None:
-        self.message_text.insert(tk.END, "\n======Start======\n")
         try:
             self.delta_freq = self._parse_decimal(self.input_entry.get())
         except ValueError:
             self.delta_freq = 0.0
+            
         if self.delta_freq is not None:
             self.plotter.finish_line_plot(self.delta_freq)
             self.started_deposition = True

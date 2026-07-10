@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 class Plotter:
-    """Manage the frequency and slope plots."""
+    """Manage the frequency and slope plots with a rolling 1-hour view."""
 
     def __init__(
         self,
@@ -26,7 +26,6 @@ class Plotter:
         self.finish_freq = 0.0
         self.start_freq = 0.0
         self.slope = 0.0
-        self.max_samples = max(2, int(60 * 60 / max(1, self.gate_time_seconds)))
 
         self.time: list[float] = []
         self.freq_data: list[float] = []
@@ -35,22 +34,25 @@ class Plotter:
         self.average_diff_data: list[float] = []
 
         ax = self.axs[1]
-        ax.set_xlabel("Time [s]")
+        ax.set_xlabel("Time [min]")
         ax.set_ylabel("Slope [Hz/min]")
         ax = self.axs[0]
         ax.set_ylabel("Freq [Hz]")
 
-    def _trim_history(self) -> None:
-        if len(self.time) <= self.max_samples:
-            return
-
-        excess = len(self.time) - self.max_samples
-        del self.time[:excess]
-        del self.freq_data[:excess]
-        del self.short_diff_data[:excess]
-        del self.long_diff_data[:excess]
-        del self.average_diff_data[:excess]
-        self.time = [index * self.gate_time_seconds for index in range(len(self.freq_data))]
+    def _update_axis_limits(self, current_time_min: float) -> None:
+        """Let Matplotlib autoscale at the beginning, then slide the window past 60 mins with padding."""
+        ax = self.axs[1]  # Bottom axis handles xlim because sharex=True
+        
+        if current_time_min > 60.0:
+            # Use NumPy to round up to the nearest integer
+            upper_limit = np.ceil(current_time_min)
+            lower_limit = upper_limit - 60.0
+            
+            ax.set_xlim(lower_limit, upper_limit)
+        else:
+            # Under 60 minutes, explicitly tell the axis to autoscale natively
+            ax.relim()
+            ax.autoscale_view(True, True, False)  # Autoscale X and Y
 
     def _compute_diff_series(self, window_points: int) -> list[float]:
         values: list[float] = []
@@ -62,37 +64,48 @@ class Plotter:
             x_last = self.time[index - window_points + 1:index + 1]
             y_last = self.freq_data[index - window_points + 1:index + 1]
             slope, _ = np.polyfit(x_last, y_last, 1)
-            values.append(slope * 60)
+            values.append(slope)
         return values
-
+    
     def update_plot(self, freq: float) -> None:
         if self.time:
-            self.time.append(self.time[-1] + self.gate_time_seconds)
+            current_time = self.time[-1] + (self.gate_time_seconds / 60.0)
         else:
-            self.time.append(0.0)
+            current_time = 0.0
+            
+        self.time.append(current_time)
         self.freq_data.append(freq)
 
         self.short_diff_data = self._compute_diff_series(self.short_diff_window_points)
         self.average_diff_data = self._compute_diff_series(self.average_diff_window_points)
         self.long_diff_data = self._compute_diff_series(self.long_diff_window_points)
-        self._trim_history()
         self.slope = self.average_diff_data[-1] if self.average_diff_data else float("nan")
 
+        # Render Top Plot
         ax = self.axs[0]
         ax.clear()
         ax.set_ylabel("Freq [Hz]")
-        ax.plot(self.time, self.freq_data, ".b")
+        # Changed from dark blue to high-visibility cyan (marker '.')
+        ax.plot(self.time, self.freq_data, marker=".", linestyle="None", color="#00e5ff")
+        
         if self.start_freq != 0.0 or self.finish_freq != 0.0:
-            ax.axhline(y=self.start_freq, color="gray", linestyle="--", linewidth=1)
-            ax.axhline(y=self.finish_freq, color="gray", linestyle="--", linewidth=1)
+            # Changed to a brighter, slightly translucent light gray/white line
+            ax.axhline(y=self.start_freq, color="#aaaaaa", linestyle="--", linewidth=1, alpha=0.7)
+            ax.axhline(y=self.finish_freq, color="#aaaaaa", linestyle="--", linewidth=1, alpha=0.7)
 
+        # Render Bottom Plot
         ax = self.axs[1]
         ax.clear()
-        ax.set_xlabel("Time [s]")
+        ax.set_xlabel("Time [min]")
         ax.set_ylabel("Slope [Hz/min]")
-        ax.plot(self.time, self.short_diff_data, marker="+", linestyle="None", color="red")
-        ax.plot(self.time, self.long_diff_data, marker="o", linestyle="None", color="green")
-        ax.plot(self.time, self.average_diff_data, marker=".", linestyle="None", color="blue")
+        
+        # Swapped to bright neon/pastel dark-mode variations
+        ax.plot(self.time, self.short_diff_data, marker="+", linestyle="None", color="#ff5252")  # Bright Coral Red
+        ax.plot(self.time, self.long_diff_data, marker="o", linestyle="None", color="#00e676")   # Neon Lime Green
+        ax.plot(self.time, self.average_diff_data, marker=".", linestyle="None", color="#00e5ff") # Bright Cyan
+        
+        # Apply the adaptive scale rule
+        self._update_axis_limits(current_time)
         self.fig.canvas.draw_idle()
 
     def clear_plot(self) -> None:
@@ -104,10 +117,13 @@ class Plotter:
         self.finish_freq = 0.0
         self.start_freq = 0.0
         self.slope = 0.0
+        
         ax = self.axs[1]
         ax.clear()
-        ax.set_xlabel("Time [s]")
+        ax.set_xlabel("Time [min]")
         ax.set_ylabel("Slope [Hz/min]")
+        ax.set_xlim(0.0, 1.0)  # Reset viewport tight to start
+        
         ax = self.axs[0]
         ax.clear()
         ax.set_ylabel("Freq [Hz]")
