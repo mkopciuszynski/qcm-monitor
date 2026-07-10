@@ -22,7 +22,6 @@ class QCMApp:
         self.reader = SerialFrequencyReader(self.settings.serial)
         
         # --- 1. SET MATPLOTLIB DARK STYLE BEFORE INITIALIZING PLOTTER ---
-        
         mpl.rcParams['figure.facecolor'] = '#1e1e1e'
         mpl.rcParams['axes.facecolor'] = '#1e1e1e'
         mpl.rcParams['axes.edgecolor'] = '#ffffff'
@@ -31,6 +30,12 @@ class QCMApp:
         mpl.rcParams['ytick.color'] = '#ffffff'
         mpl.rcParams['grid.color'] = '#444444'
         mpl.rcParams['text.color'] = '#ffffff'
+
+        # Small font rules added here:
+        mpl.rcParams['font.size'] = 9          
+        mpl.rcParams['axes.labelsize'] = 9     
+        mpl.rcParams['xtick.labelsize'] = 8    
+        mpl.rcParams['ytick.labelsize'] = 8
 
         self.plotter = Plotter(
             short_diff_window_points=self.settings.app.short_slope_window_points,
@@ -53,48 +58,52 @@ class QCMApp:
 
         self.root = tk.Tk()
         self.root.title("QCM Monitor")
-        self.root.configure(bg=BG_COLOR)  # Make main window dark
-        self.root.geometry(f"{self.settings.app.window_width}x{self.settings.app.window_height}+0+0")
+        self.root.configure(bg=BG_COLOR)
+        
+        # Enforce exact 600 width and 900 height
+        self.root.geometry("600x900+0+0")
+        self.root.resizable(False, False) # Fixes window size for deterministic layout
         self.root.protocol("WM_DELETE_WINDOW", self.exit_app)
 
-        # Apply dark background to frames
         self.main_frame = tk.Frame(self.root, bg=BG_COLOR)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
+        # --- 3. HARD CONSTRAIN PLOT FRAME (600x600 px) ---
         self.plot_frame = tk.Frame(self.main_frame, bg=BG_COLOR)
-        self.plot_frame.pack(fill=tk.BOTH, expand=True)
+        self.plot_frame.pack(fill=tk.X, expand=False) 
 
         self.canvas = FigureCanvasTkAgg(self.plotter.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        # --- 4. BOTTOM FRAME FOR CONTROLS (Remaining 300px) ---
         self.bottom_frame = tk.Frame(self.main_frame, bg=BG_COLOR)
         self.bottom_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
-        # --- 3. STYLE TEXT BOX AND INPUTS ---
         self.message_text = tk.Text(
-            self.bottom_frame, height=14, width=40, 
+            self.bottom_frame, height=14, width=35, 
             bg=WIDGET_BG, fg=TEXT_COLOR, insertbackground=TEXT_COLOR, bd=0
         )
         self.message_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.button_frame = tk.Frame(self.bottom_frame, bg=BG_COLOR)
-        self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
+        self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 0))
 
+        # Intuitive UI additions: Label added to know what input text represents
+        self.entry_label = tk.Label(self.button_frame, text="Target ΔF (Hz):", bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W)
         self.input_entry = tk.Entry(
-            self.button_frame, width=10, 
+            self.button_frame, width=12, 
             bg=WIDGET_BG, fg=TEXT_COLOR, insertbackground=TEXT_COLOR, bd=1
         )
-        self.start_button = tk.Button(self.button_frame, text="Start", width=8, command=self.button_start, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
-        self.reset_button = tk.Button(self.button_frame, text="Clear", width=8, command=self.button_reset, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
-        self.exit_button = tk.Button(self.button_frame, text="Exit", width=8, command=self.exit_app, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
+        
+        self.start_button = tk.Button(self.button_frame, text="Start", width=10, command=self.button_start, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
+        self.reset_button = tk.Button(self.button_frame, text="Reset", width=10, command=self.button_reset, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
+        self.exit_button = tk.Button(self.button_frame, text="Exit", width=10, command=self.exit_app, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
 
-        self.input_entry.grid(row=0, column=0, padx=2, pady=3)
-        self.start_button.grid(row=0, column=1, padx=2, pady=3)
-        self.reset_button.grid(row=1, column=0, padx=2, pady=3)
-        self.exit_button.grid(row=1, column=1, padx=2, pady=3)
-
-        self.status_label = tk.Label(self.root, text="", anchor=tk.W, bg=BG_COLOR, fg=TEXT_COLOR)
-        self.status_label.pack(fill=tk.X, padx=10, pady=(0, 10))
+        self.entry_label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 2))
+        self.input_entry.grid(row=1, column=0, columnspan=2, sticky=tk.EW, pady=(0, 10))
+        self.start_button.grid(row=2, column=0, padx=2, pady=4)
+        self.reset_button.grid(row=2, column=1, padx=2, pady=4)
+        self.exit_button.grid(row=3, column=0, columnspan=2, sticky=tk.EW, pady=(10, 0))
 
         self.root.after(100, self._refresh_status)
 
@@ -105,15 +114,14 @@ class QCMApp:
         current_time = datetime.now()
         self.message_text.delete(1.0, tk.END)
         self.message_text.insert(tk.END, current_time.strftime("%H:%M:%S%z"))
-        self.message_text.insert(tk.END, ": ")
 
         print(f"[app] refresh cycle at {current_time.strftime('%H:%M:%S')}")
         raw_freq = self.reader.read_frequency()
         plotted_freq, display_freq = self._resolve_frequency(raw_freq)
         self.plotter.update_plot(display_freq)
 
-        self.message_text.insert(tk.END, "\nRaw freq Hz: ")
-        self.message_text.insert(tk.END, f"{raw_freq:.4f}")
+        if self.reader.last_raw_response:
+            self.message_text.insert(tk.END, f"\nRaw response: {self.reader.last_raw_response}")
         self.message_text.insert(tk.END, "\nRelative freq Hz: ")
         self.message_text.insert(tk.END, f"{display_freq:.4f}")
         
@@ -126,15 +134,13 @@ class QCMApp:
         self.message_text.insert(tk.END, f"{long_slope:.4f}")
         self.message_text.insert(tk.END, "\n")
 
-        # ALWAYS show deposition variables immediately if deposition mode is engaged
         if self.started_deposition:
             finish_freq = getattr(self.plotter, "finish_freq", 0)
             
             if self.plotter.freq_data:
-                self.freq_left = abs(self.plotter.freq_data[-1] - finish_freq)
+                self.freq_left = self.plotter.freq_data[-1] - finish_freq
             else:
-                # Fallback calculation if array hasn't filled yet
-                self.freq_left = abs(display_freq - finish_freq)
+                self.freq_left = display_freq - finish_freq
 
             if avg_slope not in (None, float("nan")) and avg_slope != 0:
                 self.time_left = self.freq_left / abs(avg_slope)
@@ -146,7 +152,6 @@ class QCMApp:
             self.message_text.insert(tk.END, "\nMin left: ")
             self.message_text.insert(tk.END, f"{self.time_left:.2f}" if self.time_left is not None else "Calculating...")
             
-            # Isolated audio warning triggers
             if self.time_left is not None:
                 if self.time_left < 1:
                     if self.last_beep_time is None or (current_time - self.last_beep_time).total_seconds() >= self.settings.app.beep_every_seconds:
@@ -158,15 +163,19 @@ class QCMApp:
         detail = self.reader.last_error or ""
         if detail:
             self.message_text.insert(tk.END, f"\n{detail}")
-        if self.reader.last_raw_response:
-            self.message_text.insert(tk.END, f"\nRaw response: {self.reader.last_raw_response}")
-        self.status_label.config(text=f"Port: {self.settings.serial.port} | Baudrate: {self.settings.serial.baudrate}")
-
+        
+        # 1. Calculate exactly how many milliseconds the execution cycle took
         time_difference = datetime.now() - current_time
-        new_time = int(time_difference.total_seconds() * 1000)
-        new_time = 5000 if new_time > 5000 else new_time
-        delay_ms = self.settings.app.gate_time_seconds * 1000 - new_time
-        self.root.after(max(100, delay_ms), self._refresh_status)
+        execution_ms = int(time_difference.total_seconds() * 1000)
+        
+        # 2. Convert gate time to milliseconds
+        gate_ms = int(self.settings.app.gate_time_seconds * 1000)
+        
+        # 3. Target delay is the remaining time. 
+        # If execution took longer than the gate time, default to a fallback minimum (e.g., 100ms)
+        delay_ms = max(100, gate_ms - execution_ms)
+        
+        self.root.after(delay_ms, self._refresh_status)
 
     def exit_app(self) -> None:
         self.reader.close()
@@ -200,6 +209,9 @@ class QCMApp:
         return 0.0, 0.0
 
     def button_reset(self) -> None:
+        self.input_entry.config(state="normal")
+        self.input_entry.delete(0, tk.END) # Optional: Clears the old text automatically
+        
         self.plotter.clear_plot()
         self.reference_freq = None
         self.delta_freq = None
@@ -213,8 +225,12 @@ class QCMApp:
     def button_start(self) -> None:
         try:
             self.delta_freq = self._parse_decimal(self.input_entry.get())
+            # Lock the entry box immediately after a successful read
+            self.input_entry.config(state="disabled")
         except ValueError:
             self.delta_freq = 0.0
+
+        self.message_text.insert(tk.END, "\n======Start======\n")
             
         if self.delta_freq is not None:
             self.plotter.finish_line_plot(self.delta_freq)
@@ -222,13 +238,12 @@ class QCMApp:
             self.last_beep_time = None
             if self.plotter.freq_data:
                 start_freq = self.plotter.freq_data[-1]
-                self.message_text.insert(tk.END, f"\nStart freq (real): {start_freq:.4f} Hz\n")
+                
                 if self.plotter.average_diff_data and self.plotter.average_diff_data[-1] not in (None, float("nan")) and self.plotter.average_diff_data[-1] != 0:
                     slope = self.plotter.average_diff_data[-1]
                     remaining_time = -(self.plotter.finish_freq - start_freq) / slope
                     remaining_hz = self.plotter.finish_freq - start_freq
-                    self.message_text.insert(tk.END, f"Hz left: {remaining_hz:.4f}\n")
-                    self.message_text.insert(tk.END, f"Min left: {remaining_time:.4f}\n")
+
 
 
 def create_app(settings_path: Optional[Path] = None) -> QCMApp:

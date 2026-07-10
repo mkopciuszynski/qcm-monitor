@@ -19,10 +19,16 @@ class Plotter:
         self.long_diff_window_points = long_diff_window_points
         self.gate_time_seconds = gate_time_seconds
 
-        self.fig = plt.Figure(figsize=(7, 7), dpi=100)
+        self.fig = plt.Figure(figsize=(6, 7), dpi=100)
         self.axs = self.fig.subplots(2, 1, sharex=True)
-        self.fig.subplots_adjust(wspace=0.0)
-
+        self.fig.subplots_adjust(
+            left=0.15,    # 15% padding on the left for Y-axis labels (e.g., "Freq [Hz]")
+            right=0.95,   # 5% padding on the right side
+            top=0.95,     # Leaves space at the very top of the figure
+            bottom=0.1,  # 10% padding at the bottom of the lower plot for X-axis labels
+            wspace=0.0,   # No horizontal space between subplots (since they are stacked vertically)
+            hspace=0.1   # Slightly tighter vertical gap between the top and bottom plots
+        )
         self.finish_freq = 0.0
         self.start_freq = 0.0
         self.slope = 0.0
@@ -36,6 +42,7 @@ class Plotter:
         ax = self.axs[1]
         ax.set_xlabel("Time [min]")
         ax.set_ylabel("Slope [Hz/min]")
+        ax.set_ylim(None, 1.0)
         ax = self.axs[0]
         ax.set_ylabel("Freq [Hz]")
 
@@ -101,8 +108,8 @@ class Plotter:
         
         # Swapped to bright neon/pastel dark-mode variations
         ax.plot(self.time, self.short_diff_data, marker="+", linestyle="None", color="#ff5252")  # Bright Coral Red
-        ax.plot(self.time, self.long_diff_data, marker="o", linestyle="None", color="#00e676")   # Neon Lime Green
-        ax.plot(self.time, self.average_diff_data, marker=".", linestyle="None", color="#00e5ff") # Bright Cyan
+        #ax.plot(self.time, self.long_diff_data, marker="o", linestyle="None", color="#00e676")   # Neon Lime Green
+        ax.plot(self.time, self.average_diff_data, marker=".", linestyle="None", color="#00e676") # Bright Cyan
         
         # Apply the adaptive scale rule
         self._update_axis_limits(current_time)
