@@ -31,7 +31,7 @@ class QCMApp:
         mpl.rcParams['grid.color'] = '#444444'
         mpl.rcParams['text.color'] = '#ffffff'
 
-        # Small font rules added here:
+        # Small font rules:
         mpl.rcParams['font.size'] = 9          
         mpl.rcParams['axes.labelsize'] = 9     
         mpl.rcParams['xtick.labelsize'] = 8    
@@ -52,21 +52,21 @@ class QCMApp:
 
         # --- 2. DEFINE DARK PALETTE ---
         BG_COLOR = "#1e1e1e"      # Dark grey window background
-        WIDGET_BG = "#2d2d2d"     # Slightly lighter grey for entry/text/buttons
+        WIDGET_BG = "#2d2d2d"     # Slightly lighter grey for fields/buttons
         TEXT_COLOR = "#ffffff"    # White text
         BTN_BG = "#3e3e3e"        # Grey button background
+        ACCENT_COLOR = "#00ffcc"  # Teal highlight for live telemetry numbers
 
         self.root = tk.Tk()
         self.root.title("QCM Monitor")
         self.root.configure(bg=BG_COLOR)
         
-        # Enforce exact 600 width and 900 height
-        self.root.geometry("600x900+0+0")
-        self.root.resizable(False, False) # Fixes window size for deterministic layout
+        # Enforce exact width and height
+        self.root.geometry("600x950+0+0")
+        self.root.resizable(False, False) 
         self.root.protocol("WM_DELETE_WINDOW", self.exit_app)
 
-        # --- STATUS BAR (IMPROVEMENT 1) ---
-        # Pack this first at the bottom so it sits below the main frame
+        # --- STATUS BAR ---
         self.status_bar = tk.Label(
             self.root,
             text="Port: N/A | Baudrate: N/A | Last Raw: None | Last Read: N/A",
@@ -75,6 +75,7 @@ class QCMApp:
             anchor=tk.W,
             bg=WIDGET_BG,
             fg=TEXT_COLOR,
+            font=("Courier", 9)
         )
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -88,35 +89,69 @@ class QCMApp:
         self.canvas = FigureCanvasTkAgg(self.plotter.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        # --- 4. BOTTOM FRAME FOR CONTROLS (Remaining 300px) ---
+        # --- 4. BOTTOM FRAME FOR CONTROLS & DASHBOARD ---
         self.bottom_frame = tk.Frame(self.main_frame, bg=BG_COLOR)
         self.bottom_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
 
-        self.message_text = tk.Text(
-            self.bottom_frame, height=14, width=35, 
-            bg=WIDGET_BG, fg=TEXT_COLOR, insertbackground=TEXT_COLOR, bd=0
-        )
-        self.message_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # --- TELEMETRY DASHBOARD PANEL ---
+        self.dashboard_frame = tk.Frame(self.bottom_frame, bg=BG_COLOR)
+        self.dashboard_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+        self.telemetry_vars = {
+            "rel_freq": tk.StringVar(value="0.0000"),
+            "slope": tk.StringVar(value="0.0000"),
+            "long_slope": tk.StringVar(value="0.0000"),
+            "hz_left": tk.StringVar(value="Waiting"),
+            "min_left": tk.StringVar(value="Waiting"),
+        }
+
+        labels_text = [
+            ("Relative Freq (Hz):", "rel_freq"),
+            ("Slope (Hz/min):", "slope"),
+            ("Long Slope (Hz/min):", "long_slope"),
+            ("Hz Left:", "hz_left"),
+            ("Min Left:", "min_left"),
+        ]
+
+        for idx, (label_txt, var_key) in enumerate(labels_text):
+            lbl = tk.Label(self.dashboard_frame, text=label_txt, bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 9, "bold"))
+            lbl.grid(row=idx, column=0, sticky=tk.W, padx=5, pady=6)
+            
+            entry = tk.Entry(
+                self.dashboard_frame, textvariable=self.telemetry_vars[var_key], 
+                width=18, bg=WIDGET_BG, fg=ACCENT_COLOR, readonlybackground=WIDGET_BG,
+                font=("Courier", 10, "bold"), state="readonly", bd=1, relief=tk.SOLID
+            )
+            entry.grid(row=idx, column=1, sticky=tk.W, padx=10, pady=6)
+
+        # --- RIGHT-SIDE CONTROL BUTTONS FRAME ---
         self.button_frame = tk.Frame(self.bottom_frame, bg=BG_COLOR)
         self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 0))
 
-        # Intuitive UI additions: Label added to know what input text represents
-        self.entry_label = tk.Label(self.button_frame, text="Target ΔF (Hz):", bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W)
+        self.entry_label = tk.Label(self.button_frame, text="Target ΔF (Hz):", bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 9, "bold"))
+        
+        # --- STYLED TO MATCH THE TELEMETRY ENTRIES ---
         self.input_entry = tk.Entry(
-            self.button_frame, width=12, 
-            bg=WIDGET_BG, fg=TEXT_COLOR, insertbackground=TEXT_COLOR, bd=1
+            self.button_frame, 
+            width=12, 
+            bg=WIDGET_BG, 
+            fg=ACCENT_COLOR,                # Text changes to matching accent color when typing
+            insertbackground=ACCENT_COLOR,  # Flashing cursor matches theme color accent
+            disabledbackground=WIDGET_BG,   # Locked state keeps consistency
+            font=("Courier", 10, "bold"),   # Matching typography
+            bd=1, 
+            relief=tk.SOLID                 # Matching flat borders
         )
         
-        # --- BIND ENTER KEY (IMPROVEMENT 2) ---
+        # Bind Enter Key
         self.input_entry.bind("<Return>", lambda event: self.button_start())
 
         self.start_button = tk.Button(self.button_frame, text="Start", width=10, command=self.button_start, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
         self.reset_button = tk.Button(self.button_frame, text="Reset", width=10, command=self.button_reset, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
         self.exit_button = tk.Button(self.button_frame, text="Exit", width=10, command=self.exit_app, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
 
-        self.entry_label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 2))
-        self.input_entry.grid(row=1, column=0, columnspan=2, sticky=tk.EW, pady=(0, 10))
+        self.entry_label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(4, 2), padx=2)
+        self.input_entry.grid(row=1, column=0, columnspan=2, sticky=tk.EW, pady=(0, 14), padx=2, ipady=1) # ipady slightly balances the entry frame size
         self.start_button.grid(row=2, column=0, padx=2, pady=4)
         self.reset_button.grid(row=2, column=1, padx=2, pady=4)
         self.exit_button.grid(row=3, column=0, columnspan=2, sticky=tk.EW, pady=(10, 0))
@@ -128,14 +163,13 @@ class QCMApp:
 
     def _refresh_status(self) -> None:
         current_time = datetime.now()
-        self.message_text.delete(1.0, tk.END)
 
         print(f"[app] refresh cycle at {current_time.strftime('%H:%M:%S')}")
         raw_freq = self.reader.read_frequency()
         plotted_freq, display_freq = self._resolve_frequency(raw_freq)
         self.plotter.update_plot(display_freq)
 
-        # Update status bar metrics dynamically (IMPROVEMENT 1)
+        # Update status bar metrics dynamically
         port = getattr(self.settings.serial, 'port', 'N/A')
         baudrate = getattr(self.settings.serial, 'baudrate', 'N/A')
         raw_resp = self.reader.last_raw_response.strip() if self.reader.last_raw_response else "None"
@@ -144,17 +178,14 @@ class QCMApp:
             text=f" Port: {port} | {baudrate} |    {raw_resp}    |    Last Read: {read_time}"
         )
 
-        self.message_text.insert(tk.END, "Relative freq Hz: ")
-        self.message_text.insert(tk.END, f"{display_freq:.4f}")
+        # Update Dashboard Fields instead of text panel
+        self.telemetry_vars["rel_freq"].set(f"{display_freq:.4f}")
         
         avg_slope = self.plotter.average_diff_data[-1] if self.plotter.average_diff_data else 0.0
         long_slope = self.plotter.long_diff_data[-1] if self.plotter.long_diff_data else 0.0
         
-        self.message_text.insert(tk.END, f"\nSlope ({self.settings.app.average_slope_window_points} pts) Hz/min: ")
-        self.message_text.insert(tk.END, f"{avg_slope:.4f}")
-        self.message_text.insert(tk.END, f"\nLong slope ({self.settings.app.long_slope_window_points} pts) Hz/min: ")
-        self.message_text.insert(tk.END, f"{long_slope:.4f}")
-        self.message_text.insert(tk.END, "\n")
+        self.telemetry_vars["slope"].set(f"{avg_slope:.4f}")
+        self.telemetry_vars["long_slope"].set(f"{long_slope:.4f}")
 
         if self.started_deposition:
             finish_freq = getattr(self.plotter, "finish_freq", 0)
@@ -169,10 +200,8 @@ class QCMApp:
             else:
                 self.time_left = None
                 
-            self.message_text.insert(tk.END, "\nHz left: ")
-            self.message_text.insert(tk.END, f"{self.freq_left:.2f}")
-            self.message_text.insert(tk.END, "\nMin left: ")
-            self.message_text.insert(tk.END, f"{self.time_left:.2f}" if self.time_left is not None else "Calculating...")
+            self.telemetry_vars["hz_left"].set(f"{self.freq_left:.2f}")
+            self.telemetry_vars["min_left"].set(f"{self.time_left:.2f}" if self.time_left is not None else "Calculating...")
             
             if self.time_left is not None:
                 if self.time_left < 1:
@@ -181,20 +210,18 @@ class QCMApp:
                         self.last_beep_time = current_time
                 if self.time_left < 0:
                     winsound.Beep(2500, self.settings.app.beep_warning_ms)
+        else:
+            self.telemetry_vars["hz_left"].set("N/A")
+            self.telemetry_vars["min_left"].set("N/A")
 
-        detail = self.reader.last_error or ""
-        if detail:
-            self.message_text.insert(tk.END, f"\n{detail}")
-        
-        # 1. Calculate exactly how many milliseconds the execution cycle took
+        # 1. Calculate execution loop cycle time
         time_difference = datetime.now() - current_time
         execution_ms = int(time_difference.total_seconds() * 1000)
         
         # 2. Convert gate time to milliseconds
         gate_ms = int(self.settings.app.gate_time_seconds * 1000)
         
-        # 3. Target delay is the remaining time. 
-        # If execution took longer than the gate time, default to a fallback minimum (e.g., 100ms)
+        # 3. Target delay calculation
         delay_ms = max(100, gate_ms - execution_ms)
         
         self.root.after(delay_ms, self._refresh_status)
@@ -232,7 +259,7 @@ class QCMApp:
 
     def button_reset(self) -> None:
         self.input_entry.config(state="normal")
-        self.input_entry.delete(0, tk.END) # Optional: Clears the old text automatically
+        self.input_entry.delete(0, tk.END) 
         
         self.plotter.clear_plot()
         self.reference_freq = None
@@ -241,18 +268,20 @@ class QCMApp:
         self.time_left = None
         self.started_deposition = False
         self.last_beep_time = None
-        self.message_text.delete(1.0, tk.END)
-        self.message_text.insert(tk.END, "\n======Clear======\n")
+        
+        # Reset telemetry numbers to default states
+        self.telemetry_vars["rel_freq"].set("0.0000")
+        self.telemetry_vars["slope"].set("0.0000")
+        self.telemetry_vars["long_slope"].set("0.0000")
+        self.telemetry_vars["hz_left"].set("N/A")
+        self.telemetry_vars["min_left"].set("N/A")
 
     def button_start(self) -> None:
         try:
             self.delta_freq = self._parse_decimal(self.input_entry.get())
-            # Lock the entry box immediately after a successful read
             self.input_entry.config(state="disabled")
         except ValueError:
             self.delta_freq = 0.0
-
-        self.message_text.insert(tk.END, "\n======Start======\n")
             
         if self.delta_freq is not None:
             self.plotter.finish_line_plot(self.delta_freq)
