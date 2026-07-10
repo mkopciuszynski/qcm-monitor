@@ -65,6 +65,19 @@ class QCMApp:
         self.root.resizable(False, False) # Fixes window size for deterministic layout
         self.root.protocol("WM_DELETE_WINDOW", self.exit_app)
 
+        # --- STATUS BAR (IMPROVEMENT 1) ---
+        # Pack this first at the bottom so it sits below the main frame
+        self.status_bar = tk.Label(
+            self.root,
+            text="Port: N/A | Baudrate: N/A | Last Raw: None | Last Read: N/A",
+            bd=1,
+            relief=tk.SUNKEN,
+            anchor=tk.W,
+            bg=WIDGET_BG,
+            fg=TEXT_COLOR,
+        )
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
         self.main_frame = tk.Frame(self.root, bg=BG_COLOR)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
@@ -95,6 +108,9 @@ class QCMApp:
             bg=WIDGET_BG, fg=TEXT_COLOR, insertbackground=TEXT_COLOR, bd=1
         )
         
+        # --- BIND ENTER KEY (IMPROVEMENT 2) ---
+        self.input_entry.bind("<Return>", lambda event: self.button_start())
+
         self.start_button = tk.Button(self.button_frame, text="Start", width=10, command=self.button_start, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
         self.reset_button = tk.Button(self.button_frame, text="Reset", width=10, command=self.button_reset, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
         self.exit_button = tk.Button(self.button_frame, text="Exit", width=10, command=self.exit_app, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
@@ -113,16 +129,22 @@ class QCMApp:
     def _refresh_status(self) -> None:
         current_time = datetime.now()
         self.message_text.delete(1.0, tk.END)
-        self.message_text.insert(tk.END, current_time.strftime("%H:%M:%S%z"))
 
         print(f"[app] refresh cycle at {current_time.strftime('%H:%M:%S')}")
         raw_freq = self.reader.read_frequency()
         plotted_freq, display_freq = self._resolve_frequency(raw_freq)
         self.plotter.update_plot(display_freq)
 
-        if self.reader.last_raw_response:
-            self.message_text.insert(tk.END, f"\nRaw response: {self.reader.last_raw_response}")
-        self.message_text.insert(tk.END, "\nRelative freq Hz: ")
+        # Update status bar metrics dynamically (IMPROVEMENT 1)
+        port = getattr(self.settings.serial, 'port', 'N/A')
+        baudrate = getattr(self.settings.serial, 'baudrate', 'N/A')
+        raw_resp = self.reader.last_raw_response.strip() if self.reader.last_raw_response else "None"
+        read_time = current_time.strftime("%H:%M:%S")
+        self.status_bar.config(
+            text=f" Port: {port} | {baudrate} |    {raw_resp}    |    Last Read: {read_time}"
+        )
+
+        self.message_text.insert(tk.END, "Relative freq Hz: ")
         self.message_text.insert(tk.END, f"{display_freq:.4f}")
         
         avg_slope = self.plotter.average_diff_data[-1] if self.plotter.average_diff_data else 0.0
@@ -243,7 +265,6 @@ class QCMApp:
                     slope = self.plotter.average_diff_data[-1]
                     remaining_time = -(self.plotter.finish_freq - start_freq) / slope
                     remaining_hz = self.plotter.finish_freq - start_freq
-
 
 
 def create_app(settings_path: Optional[Path] = None) -> QCMApp:
