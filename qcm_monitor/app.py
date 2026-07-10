@@ -72,7 +72,7 @@ class QCMApp:
             text="Port: N/A | Baudrate: N/A | Last Raw: None | Last Read: N/A",
             bd=1,
             relief=tk.SUNKEN,
-            anchor=tk.W,
+            anchor=tk.CENTER,
             bg=WIDGET_BG,
             fg=TEXT_COLOR,
             font=("Courier", 10)
@@ -108,7 +108,7 @@ class QCMApp:
         labels_text = [
             ("Relative Freq (Hz):", "rel_freq"),
             ("Slope (Hz/min):", "slope"),
-            ("Long Slope (Hz/min):", "long_slope"),
+            ("Slope averaged (Hz/min):", "long_slope"),
             ("Hz Left:", "hz_left"),
             ("Min Left:", "min_left"),
         ]
@@ -175,7 +175,7 @@ class QCMApp:
         raw_resp = self.reader.last_raw_response.strip() if self.reader.last_raw_response else "None"
         read_time = current_time.strftime("%H:%M:%S")
         self.status_bar.config(
-            text=f" Port: {port} | {baudrate} |    {raw_resp}    |    Last Read: {read_time}"
+            text=f" {port} | {baudrate} \t\t\t Last Read: {read_time} | {raw_resp}"
         )
 
         # Update Dashboard Fields instead of text panel
@@ -195,7 +195,7 @@ class QCMApp:
             else:
                 self.freq_left = display_freq - finish_freq
 
-            if avg_slope not in (None, float("nan")) and avg_slope != 0:
+            if avg_slope not in (None, float("nan")) and abs(avg_slope) > 0.0001:
                 self.time_left = self.freq_left / abs(avg_slope)
             else:
                 self.time_left = None
