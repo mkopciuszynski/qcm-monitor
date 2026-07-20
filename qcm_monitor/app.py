@@ -49,6 +49,7 @@ class QCMApp:
         self.reference_freq: Optional[float] = None
         self.last_beep_time: Optional[datetime] = None
         self.started_deposition = False
+        self.last_valid_raw_freq: Optional[float] = None
 
         # --- 2. DEFINE DARK PALETTE ---
         BG_COLOR = "#1e1e1e"      # Dark grey window background
@@ -115,18 +116,18 @@ class QCMApp:
 
         for idx, (label_txt, var_key) in enumerate(labels_text):
             lbl = tk.Label(self.dashboard_frame, text=label_txt, bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 10, "bold"))
-            lbl.grid(row=idx, column=0, sticky=tk.W, padx=5, pady=6)
+            lbl.grid(row=idx, column=0, sticky=tk.W, padx=10, pady=6)
             
             entry = tk.Entry(
                 self.dashboard_frame, textvariable=self.telemetry_vars[var_key], 
                 width=18, bg=WIDGET_BG, fg=ACCENT_COLOR, readonlybackground=WIDGET_BG,
                 font=("Courier", 11, "bold"), state="readonly", bd=1, relief=tk.SOLID
             )
-            entry.grid(row=idx, column=1, sticky=tk.W, padx=10, pady=6)
+            entry.grid(row=idx, column=1, sticky=tk.W, padx=15, pady=6)
 
         # --- RIGHT-SIDE CONTROL BUTTONS FRAME ---
         self.button_frame = tk.Frame(self.bottom_frame, bg=BG_COLOR)
-        self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 0))
+        self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 15))
 
         self.entry_label = tk.Label(self.button_frame, text="Target ΔF (Hz):", bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 10, "bold"))
         
@@ -241,6 +242,12 @@ class QCMApp:
         return raw_freq - self.reference_freq
 
     def _resolve_frequency(self, raw_freq: float) -> tuple[float, float]:
+        # --- FALLBACK PROTECTION FOR COMM/PARSING JUMPS ---
+        if raw_freq and getattr(self, "last_valid_raw_freq", None) is not None:
+            if abs(raw_freq - self.last_valid_raw_freq) > 1.0:
+                # Anomaly detected! Revert to the last valid tracked frequency.
+                raw_freq = self.last_valid_raw_freq
+
         if raw_freq:
             if self.reference_freq is None:
                 self.reference_freq = raw_freq
@@ -268,6 +275,7 @@ class QCMApp:
         self.time_left = None
         self.started_deposition = False
         self.last_beep_time = None
+        self.last_valid_raw_freq = None
         
         # Reset telemetry numbers to default states
         self.telemetry_vars["rel_freq"].set("0.0000")
