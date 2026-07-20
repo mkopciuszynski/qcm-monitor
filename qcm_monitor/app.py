@@ -249,12 +249,14 @@ class QCMApp:
                 raw_freq = self.last_valid_raw_freq
 
         if raw_freq:
+            self.last_valid_raw_freq = raw_freq  # <-- FIX: Keep the tracking value current!
             if self.reference_freq is None:
                 self.reference_freq = raw_freq
             return raw_freq, self._relative_frequency(raw_freq)
 
         last_successful = getattr(self.reader, "last_successful_frequency", None)
         if last_successful is not None:
+            self.last_valid_raw_freq = last_successful
             if self.reference_freq is None:
                 self.reference_freq = last_successful
             return last_successful, 0.0
