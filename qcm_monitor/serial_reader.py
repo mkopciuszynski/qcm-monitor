@@ -68,7 +68,6 @@ class SerialFrequencyReader:
                 if parsed is not None:
                     self.last_error = None
                     self.last_frequency = parsed
-                    print(f"[serial] parsed frequency: {parsed}")
                     return parsed
 
                 self.last_error = f"Could not parse response: {self.last_raw_response}"
