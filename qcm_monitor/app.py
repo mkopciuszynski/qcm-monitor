@@ -18,9 +18,15 @@ class QCMApp:
     """Main application window for QCM monitoring."""
 
     def __init__(self, settings_path: Optional[Path] = None) -> None:
+        # Read setting and init Serial Reader
         self.settings = load_settings(settings_path)
+
         self.reader = SerialFrequencyReader(self.settings.serial)
-        
+        if self.reader.connect():
+            print("[app] Serial device connected successfully.")
+        else:
+            print(f"[app] Warning: Could not connect to serial device: {self.reader.last_error}")
+
         # --- 1. SET MATPLOTLIB DARK STYLE BEFORE INITIALIZING PLOTTER ---
         mpl.rcParams['figure.facecolor'] = '#1e1e1e'
         mpl.rcParams['axes.facecolor'] = '#1e1e1e'
@@ -49,7 +55,7 @@ class QCMApp:
         self.reference_freq: Optional[float] = None
         self.last_beep_time: Optional[datetime] = None
         self.started_deposition = False
-        self.last_valid_raw_freq: Optional[float] = None
+        self.last_freq: Optional[float] = None
 
         # --- 2. DEFINE DARK PALETTE ---
         BG_COLOR = "#1e1e1e"      # Dark grey window background
@@ -102,6 +108,7 @@ class QCMApp:
             "rel_freq": tk.StringVar(value="0.0000"),
             "slope": tk.StringVar(value="0.0000"),
             "long_slope": tk.StringVar(value="0.0000"),
+            "hz_stop": tk.StringVar(value="Waiting"),
             "hz_left": tk.StringVar(value="Waiting"),
             "min_left": tk.StringVar(value="Waiting"),
         }
@@ -110,6 +117,7 @@ class QCMApp:
             ("Relative Freq (Hz):", "rel_freq"),
             ("Slope (Hz/min):", "slope"),
             ("Slope averaged (Hz/min):", "long_slope"),
+            ("Hz stop:", "hz_stop"),
             ("Hz Left:", "hz_left"),
             ("Min Left:", "min_left"),
         ]
@@ -200,7 +208,9 @@ class QCMApp:
                 self.time_left = self.freq_left / abs(avg_slope)
             else:
                 self.time_left = None
-                
+
+            hz_stop = (self.reference_freq + finish_freq) / 10 ** 6
+            self.telemetry_vars["hz_stop"].set(f"{hz_stop:.8f}")
             self.telemetry_vars["hz_left"].set(f"{self.freq_left:.2f}")
             self.telemetry_vars["min_left"].set(f"{self.time_left:.2f}" if self.time_left is not None else "Calculating...")
             
@@ -214,6 +224,7 @@ class QCMApp:
         else:
             self.telemetry_vars["hz_left"].set("waiting")
             self.telemetry_vars["min_left"].set("waiting")
+            self.telemetry_vars["hz_stop"].set("waiting")
 
         # 1. Calculate execution loop cycle time
         time_difference = datetime.now() - current_time
@@ -242,21 +253,15 @@ class QCMApp:
         return raw_freq - self.reference_freq
 
     def _resolve_frequency(self, raw_freq: float) -> tuple[float, float]:
-        # --- FALLBACK PROTECTION FOR COMM/PARSING JUMPS ---
-        if raw_freq and getattr(self, "last_valid_raw_freq", None) is not None:
-            if abs(raw_freq - self.last_valid_raw_freq) > 1.0:
-                # Anomaly detected! Revert to the last valid tracked frequency.
-                raw_freq = self.last_valid_raw_freq
-
         if raw_freq:
-            self.last_valid_raw_freq = raw_freq  # <-- FIX: Keep the tracking value current!
+            self.last_freq = raw_freq
             if self.reference_freq is None:
                 self.reference_freq = raw_freq
             return raw_freq, self._relative_frequency(raw_freq)
 
         last_successful = getattr(self.reader, "last_successful_frequency", None)
         if last_successful is not None:
-            self.last_valid_raw_freq = last_successful
+            self.last_freq = last_successful
             if self.reference_freq is None:
                 self.reference_freq = last_successful
             return last_successful, 0.0
@@ -277,12 +282,13 @@ class QCMApp:
         self.time_left = None
         self.started_deposition = False
         self.last_beep_time = None
-        self.last_valid_raw_freq = None
+        self.last_freq = None
         
         # Reset telemetry numbers to default states
         self.telemetry_vars["rel_freq"].set("0.0000")
         self.telemetry_vars["slope"].set("0.0000")
         self.telemetry_vars["long_slope"].set("0.0000")
+        self.telemetry_vars["hz_stop"].set("waiting")
         self.telemetry_vars["hz_left"].set("waiting")
         self.telemetry_vars["min_left"].set("waiting")
 
