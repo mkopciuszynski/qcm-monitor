@@ -170,21 +170,28 @@ class QCMApp:
     def _refresh_status(self) -> None:
         current_time = datetime.now()
 
-        print(f"[app] refresh cycle at {current_time.strftime('%H:%M:%S')}")
         raw_freq = self.reader.read_frequency()
-        
+
+        print(f"[app] Refresh cycle at {current_time.strftime('%H:%M:%S')} | Raw Frequency: {raw_freq:.2f}")        
+
         abs_freq = self._resolve_frequency(raw_freq)
         relative_freq = self._relative_frequency(abs_freq)
         
         self.plotter.update_plot(relative_freq)
 
+        # --- ROLLING WINDOW DATA PRUNING ---
+        max_history_points = getattr(self.settings.app, "max_history_points", 3600)
+        for attr_name in ["freq_data", "short_diff_data", "average_diff_data", "long_diff_data", "time_data"]:
+            attr_list = getattr(self.plotter, attr_name, None)
+            if isinstance(attr_list, list) and len(attr_list) > max_history_points:
+                setattr(self.plotter, attr_name, attr_list[-max_history_points:])
+
         port = getattr(self.settings.serial, 'port', 'N/A')
         baudrate = getattr(self.settings.serial, 'baudrate', 'N/A')
         read_time = current_time.strftime("%H:%M:%S")
         self.status_bar.config(
-            text=f"Port: {port} | Baudrate: {baudrate} | Last Read: {read_time}"
+            text=f" {port} | {baudrate} \t\t\t  Last Read: {read_time} | {abs_freq / (10 ** 6):.8f} MHz"
         )
-
         self.telemetry_vars["rel_freq"].set(f"{relative_freq:.4f}")
         
         avg_slope = self.plotter.average_diff_data[-1] if self.plotter.average_diff_data else 0.0

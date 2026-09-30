@@ -62,7 +62,6 @@ class SerialFrequencyReader:
                     continue
 
                 self.last_raw_response = raw_response.decode("ascii", errors="ignore").strip()
-                print(f"[serial] attempt {attempt + 1}: raw response {self.last_raw_response!r}")
 
                 parsed = self._parse_frequency(self.last_raw_response)
                 if parsed is not None:
