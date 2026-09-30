@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 import matplotlib as mpl
+import warnings
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
@@ -13,6 +14,7 @@ from .config import load_settings
 from .plotter import Plotter
 from .serial_reader import SerialFrequencyReader
 
+MAX_JUMP_HZ = 2.0
 
 class QCMApp:
     """Main application window for QCM monitoring."""
@@ -54,7 +56,7 @@ class QCMApp:
         self.reference_freq: Optional[float] = None
         self.last_beep_time: Optional[datetime] = None
         self.started_deposition = False
-        self.last_freq: Optional[float] = None
+        self.last_abs_freq: Optional[float] = None
 
         # --- 2. DEFINE DARK PALETTE ---
         BG_COLOR = "#1e1e1e"      # Dark grey window background
@@ -172,10 +174,11 @@ class QCMApp:
 
         raw_freq = self.reader.read_frequency()
 
-        print(f"[app] Refresh cycle at {current_time.strftime('%H:%M:%S')} | Raw Frequency: {raw_freq:.2f}")        
-
         abs_freq = self._resolve_frequency(raw_freq)
         relative_freq = self._relative_frequency(abs_freq)
+        
+        print(f"[app] Refresh cycle at {current_time.strftime('%H:%M:%S')} | Abs Frequency: {abs_freq:.2f}")        
+
         
         self.plotter.update_plot(relative_freq)
 
@@ -244,35 +247,31 @@ class QCMApp:
     def _parse_decimal(self, value: str) -> float:
         return float(value.replace(",", "."))
 
+
+    def _resolve_frequency(self, raw_freq: Optional[float]) -> float:
+        # 1. Handle completely missing input when we also have no history
+        if raw_freq is None:
+            if self.last_abs_freq is not None:
+                warnings.warn("Fallback to last good value")
+                return self.last_abs_freq
+            return 0.0
+
+        # 2. Anomaly filtering check for valid incoming frequencies
+        if self.last_abs_freq is not None:
+            if abs(raw_freq - self.last_abs_freq) > MAX_JUMP_HZ:
+                warnings.warn("Jump detected! Used last good value")
+                raw_freq = self.last_abs_freq
+
+        # 3. Update history and return
+        self.last_abs_freq = raw_freq
+        return raw_freq
+
+
     def _relative_frequency(self, abs_freq: float) -> float:
         if self.reference_freq is None:
             self.reference_freq = abs_freq
             return 0.0
         return abs_freq - self.reference_freq
-
-    def _resolve_frequency(self, raw_freq: Optional[float]) -> float:
-        # Anomaly filtering check
-        if raw_freq is not None and self.last_freq is not None:
-            if abs(raw_freq - self.last_freq) > 1.0:
-                raw_freq = self.last_freq
-
-        if raw_freq is not None:
-            self.last_freq = raw_freq
-            if self.reference_freq is None:
-                self.reference_freq = raw_freq
-            return raw_freq
-
-        last_successful = getattr(self.reader, "last_frequency", None)
-        if last_successful is not None:
-            self.last_freq = last_successful
-            if self.reference_freq is None:
-                self.reference_freq = last_successful
-            return last_successful
-
-        if self.reference_freq is not None:
-            return self.reference_freq
-
-        return 0.0
 
     def button_reset(self) -> None:
         self.input_entry.config(state="normal")
@@ -285,7 +284,7 @@ class QCMApp:
         self.time_left = None
         self.started_deposition = False
         self.last_beep_time = None
-        self.last_freq = None
+        self.last_abs_freq = None
         
         self.telemetry_vars["rel_freq"].set("0.0000")
         self.telemetry_vars["slope"].set("0.0000")

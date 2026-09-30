@@ -14,7 +14,6 @@ class SerialFrequencyReader:
         self.settings = settings
         self.last_error: Optional[str] = None
         self.last_raw_response: Optional[str] = None
-        self.last_frequency: Optional[float] = None
 
         self._serial: Optional[serial.Serial] = None
         self._command = f"{self.settings.command}{self.settings.termination}".encode("ascii")
@@ -43,9 +42,9 @@ class SerialFrequencyReader:
             self._serial.close()
         self._serial = None
 
-    def read_frequency(self) -> float:
+    def read_frequency(self) -> Optional[float]:
         if not self._serial:
-            return 0.0
+            return None
 
         termination_bytes = self.settings.termination.encode("ascii")
 
@@ -57,7 +56,7 @@ class SerialFrequencyReader:
                 raw_response = self._serial.read_until(expected=termination_bytes)
                 if not raw_response:
                     self.last_error = "No response from device"
-                    print("[serial] no response received")
+                    print(f"[serial] no response received, attempt {attempt}")
                     time.sleep(0.1)
                     continue
 
@@ -66,7 +65,6 @@ class SerialFrequencyReader:
                 parsed = self._parse_frequency(self.last_raw_response)
                 if parsed is not None:
                     self.last_error = None
-                    self.last_frequency = parsed
                     return parsed
 
                 self.last_error = f"Could not parse response: {self.last_raw_response}"
@@ -75,9 +73,9 @@ class SerialFrequencyReader:
             except (serial.SerialException, OSError) as exc:
                 self._serial, self.last_error = None, str(exc)
                 print(f"[serial] read error: {exc}")
-                return 0.0
+                return None
 
-        return 0.0
+        return None
 
     @staticmethod
     def _parse_frequency(text: str) -> Optional[float]:
