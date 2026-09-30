@@ -75,7 +75,7 @@ class QCMApp:
         # --- STATUS BAR ---
         self.status_bar = tk.Label(
             self.root,
-            text="Port: N/A | Baudrate: N/A | Last Raw: None | Last Read: N/A",
+            text="Port: N/A | Baudrate: N/A | Last Read: N/A",
             bd=1,
             relief=tk.SUNKEN,
             anchor=tk.CENTER,
@@ -172,18 +172,20 @@ class QCMApp:
 
         print(f"[app] refresh cycle at {current_time.strftime('%H:%M:%S')}")
         raw_freq = self.reader.read_frequency()
-        plotted_freq, display_freq = self._resolve_frequency(raw_freq)
-        self.plotter.update_plot(display_freq)
+        
+        abs_freq = self._resolve_frequency(raw_freq)
+        relative_freq = self._relative_frequency(abs_freq)
+        
+        self.plotter.update_plot(relative_freq)
 
         port = getattr(self.settings.serial, 'port', 'N/A')
         baudrate = getattr(self.settings.serial, 'baudrate', 'N/A')
-        raw_resp = self.reader.last_raw_response.strip() if self.reader.last_raw_response else "None"
         read_time = current_time.strftime("%H:%M:%S")
         self.status_bar.config(
-            text=f" {port} | {baudrate} \t\t\t Last Read: {read_time} | {raw_resp}"
+            text=f"Port: {port} | Baudrate: {baudrate} | Last Read: {read_time}"
         )
 
-        self.telemetry_vars["rel_freq"].set(f"{display_freq:.4f}")
+        self.telemetry_vars["rel_freq"].set(f"{relative_freq:.4f}")
         
         avg_slope = self.plotter.average_diff_data[-1] if self.plotter.average_diff_data else 0.0
         long_slope = self.plotter.long_diff_data[-1] if self.plotter.long_diff_data else 0.0
@@ -197,7 +199,7 @@ class QCMApp:
             if self.plotter.freq_data:
                 self.freq_left = self.plotter.freq_data[-1] - finish_freq
             else:
-                self.freq_left = display_freq - finish_freq
+                self.freq_left = relative_freq - finish_freq
 
             if avg_slope not in (None, float("nan")) and abs(avg_slope) > 0.0001:
                 self.time_left = self.freq_left / abs(avg_slope)
@@ -235,30 +237,35 @@ class QCMApp:
     def _parse_decimal(self, value: str) -> float:
         return float(value.replace(",", "."))
 
-    def _relative_frequency(self, raw_freq: float) -> float:
+    def _relative_frequency(self, abs_freq: float) -> float:
         if self.reference_freq is None:
-            self.reference_freq = raw_freq
+            self.reference_freq = abs_freq
             return 0.0
-        return raw_freq - self.reference_freq
+        return abs_freq - self.reference_freq
 
-    def _resolve_frequency(self, raw_freq: Optional[float]) -> tuple[float, float]:
+    def _resolve_frequency(self, raw_freq: Optional[float]) -> float:
+        # Anomaly filtering check
+        if raw_freq is not None and self.last_freq is not None:
+            if abs(raw_freq - self.last_freq) > 1.0:
+                raw_freq = self.last_freq
+
         if raw_freq is not None:
             self.last_freq = raw_freq
             if self.reference_freq is None:
                 self.reference_freq = raw_freq
-            return raw_freq, self._relative_frequency(raw_freq)
+            return raw_freq
 
-        last_successful = getattr(self.reader, "last_successful_frequency", None)
+        last_successful = getattr(self.reader, "last_frequency", None)
         if last_successful is not None:
             self.last_freq = last_successful
             if self.reference_freq is None:
                 self.reference_freq = last_successful
-            return last_successful, 0.0
+            return last_successful
 
         if self.reference_freq is not None:
-            return self.reference_freq, 0.0
+            return self.reference_freq
 
-        return 0.0, 0.0
+        return 0.0
 
     def button_reset(self) -> None:
         self.input_entry.config(state="normal")
