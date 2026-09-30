@@ -16,14 +16,18 @@ class SerialFrequencyReader:
         self.last_raw_response: Optional[str] = None
 
         self._serial: Optional[serial.Serial] = None
-        self._command = f"{self.settings.command}{self.settings.termination}".encode("ascii")
+        self._command = f"{self.settings.command}{self.settings.termination}".encode(
+            "ascii"
+        )
 
     def connect(self) -> bool:
         if self._serial and self._serial.is_open:
             print(f"[serial] already open on {self.settings.port}")
             return True
         try:
-            print(f"[serial] opening {self.settings.port} @ {self.settings.baudrate} baud")
+            print(
+                f"[serial] opening {self.settings.port} @ {self.settings.baudrate} baud"
+            )
             self._serial = serial.Serial(
                 port=self.settings.port,
                 baudrate=self.settings.baudrate,
@@ -52,7 +56,7 @@ class SerialFrequencyReader:
             try:
                 self._serial.write(self._command)
                 time.sleep(0.1)
-                
+
                 raw_response = self._serial.read_until(expected=termination_bytes)
                 if not raw_response:
                     self.last_error = "No response from device"
@@ -60,7 +64,9 @@ class SerialFrequencyReader:
                     time.sleep(0.1)
                     continue
 
-                self.last_raw_response = raw_response.decode("ascii", errors="ignore").strip()
+                self.last_raw_response = raw_response.decode(
+                    "ascii", errors="ignore"
+                ).strip()
 
                 parsed = self._parse_frequency(self.last_raw_response)
                 if parsed is not None:

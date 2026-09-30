@@ -16,6 +16,7 @@ from .serial_reader import SerialFrequencyReader
 
 MAX_JUMP_HZ = 2.0
 
+
 class QCMApp:
     """Main application window for QCM monitoring."""
 
@@ -27,22 +28,24 @@ class QCMApp:
         if self.reader.connect():
             print("[app] Serial device connected successfully.")
         else:
-            print(f"[app] Warning: Could not connect to serial device: {self.reader.last_error}")
+            print(
+                f"[app] Warning: Could not connect to serial device: {self.reader.last_error}"
+            )
 
         # --- 1. SET MATPLOTLIB DARK STYLE BEFORE INITIALIZING PLOTTER ---
-        mpl.rcParams['figure.facecolor'] = '#1e1e1e'
-        mpl.rcParams['axes.facecolor'] = '#1e1e1e'
-        mpl.rcParams['axes.edgecolor'] = '#ffffff'
-        mpl.rcParams['axes.labelcolor'] = '#ffffff'
-        mpl.rcParams['xtick.color'] = '#ffffff'
-        mpl.rcParams['ytick.color'] = '#ffffff'
-        mpl.rcParams['grid.color'] = '#444444'
-        mpl.rcParams['text.color'] = '#ffffff'
+        mpl.rcParams["figure.facecolor"] = "#1e1e1e"
+        mpl.rcParams["axes.facecolor"] = "#1e1e1e"
+        mpl.rcParams["axes.edgecolor"] = "#ffffff"
+        mpl.rcParams["axes.labelcolor"] = "#ffffff"
+        mpl.rcParams["xtick.color"] = "#ffffff"
+        mpl.rcParams["ytick.color"] = "#ffffff"
+        mpl.rcParams["grid.color"] = "#444444"
+        mpl.rcParams["text.color"] = "#ffffff"
 
-        mpl.rcParams['font.size'] = 10          
-        mpl.rcParams['axes.labelsize'] = 10     
-        mpl.rcParams['xtick.labelsize'] = 9    
-        mpl.rcParams['ytick.labelsize'] = 9
+        mpl.rcParams["font.size"] = 10
+        mpl.rcParams["axes.labelsize"] = 10
+        mpl.rcParams["xtick.labelsize"] = 9
+        mpl.rcParams["ytick.labelsize"] = 9
 
         self.plotter = Plotter(
             short_diff_window_points=self.settings.app.short_slope_window_points,
@@ -59,19 +62,19 @@ class QCMApp:
         self.last_abs_freq: Optional[float] = None
 
         # --- 2. DEFINE DARK PALETTE ---
-        BG_COLOR = "#1e1e1e"      # Dark grey window background
-        WIDGET_BG = "#2d2d2d"     # Slightly lighter grey for fields/buttons
-        TEXT_COLOR = "#ffffff"    # White text
-        BTN_BG = "#3e3e3e"        # Grey button background
+        BG_COLOR = "#1e1e1e"  # Dark grey window background
+        WIDGET_BG = "#2d2d2d"  # Slightly lighter grey for fields/buttons
+        TEXT_COLOR = "#ffffff"  # White text
+        BTN_BG = "#3e3e3e"  # Grey button background
         ACCENT_COLOR = "#00ffcc"  # Teal highlight for live telemetry numbers
 
         self.root = tk.Tk()
         self.root.title("QCM Monitor")
         self.root.configure(bg=BG_COLOR)
-        
+
         # Enforce exact width and height
         self.root.geometry("600x950+0+0")
-        self.root.resizable(False, False) 
+        self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.exit_app)
 
         # --- STATUS BAR ---
@@ -83,7 +86,7 @@ class QCMApp:
             anchor=tk.CENTER,
             bg=WIDGET_BG,
             fg=TEXT_COLOR,
-            font=("Courier", 10)
+            font=("Courier", 10),
         )
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -92,7 +95,7 @@ class QCMApp:
 
         # --- 3. HARD CONSTRAIN PLOT FRAME ---
         self.plot_frame = tk.Frame(self.main_frame, bg=BG_COLOR)
-        self.plot_frame.pack(fill=tk.X, expand=False) 
+        self.plot_frame.pack(fill=tk.X, expand=False)
 
         self.canvas = FigureCanvasTkAgg(self.plotter.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
@@ -124,13 +127,27 @@ class QCMApp:
         ]
 
         for idx, (label_txt, var_key) in enumerate(labels_text):
-            lbl = tk.Label(self.dashboard_frame, text=label_txt, bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 10, "bold"))
+            lbl = tk.Label(
+                self.dashboard_frame,
+                text=label_txt,
+                bg=BG_COLOR,
+                fg=TEXT_COLOR,
+                anchor=tk.W,
+                font=("Arial", 10, "bold"),
+            )
             lbl.grid(row=idx, column=0, sticky=tk.W, padx=10, pady=6)
-            
+
             entry = tk.Entry(
-                self.dashboard_frame, textvariable=self.telemetry_vars[var_key], 
-                width=18, bg=WIDGET_BG, fg=ACCENT_COLOR, readonlybackground=WIDGET_BG,
-                font=("Courier", 11, "bold"), state="readonly", bd=1, relief=tk.SOLID
+                self.dashboard_frame,
+                textvariable=self.telemetry_vars[var_key],
+                width=18,
+                bg=WIDGET_BG,
+                fg=ACCENT_COLOR,
+                readonlybackground=WIDGET_BG,
+                font=("Courier", 11, "bold"),
+                state="readonly",
+                bd=1,
+                relief=tk.SOLID,
             )
             entry.grid(row=idx, column=1, sticky=tk.W, padx=15, pady=6)
 
@@ -138,28 +155,66 @@ class QCMApp:
         self.button_frame = tk.Frame(self.bottom_frame, bg=BG_COLOR)
         self.button_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(12, 15))
 
-        self.entry_label = tk.Label(self.button_frame, text="Target ΔF (Hz):", bg=BG_COLOR, fg=TEXT_COLOR, anchor=tk.W, font=("Arial", 10, "bold"))
-        
-        self.input_entry = tk.Entry(
-            self.button_frame, 
-            width=12, 
-            bg=WIDGET_BG, 
-            fg=ACCENT_COLOR,              
-            insertbackground=ACCENT_COLOR,  
-            disabledbackground=WIDGET_BG,   
-            font=("Courier", 10, "bold"),   
-            bd=1, 
-            relief=tk.SOLID                
+        self.entry_label = tk.Label(
+            self.button_frame,
+            text="Target ΔF (Hz):",
+            bg=BG_COLOR,
+            fg=TEXT_COLOR,
+            anchor=tk.W,
+            font=("Arial", 10, "bold"),
         )
-        
+
+        self.input_entry = tk.Entry(
+            self.button_frame,
+            width=12,
+            bg=WIDGET_BG,
+            fg=ACCENT_COLOR,
+            insertbackground=ACCENT_COLOR,
+            disabledbackground=WIDGET_BG,
+            font=("Courier", 10, "bold"),
+            bd=1,
+            relief=tk.SOLID,
+        )
+
         self.input_entry.bind("<Return>", lambda event: self.button_start())
 
-        self.start_button = tk.Button(self.button_frame, text="Start", width=10, command=self.button_start, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
-        self.reset_button = tk.Button(self.button_frame, text="Reset", width=10, command=self.button_reset, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
-        self.exit_button = tk.Button(self.button_frame, text="Exit", width=10, command=self.exit_app, bg=BTN_BG, fg=TEXT_COLOR, activebackground=WIDGET_BG, activeforeground=TEXT_COLOR)
+        self.start_button = tk.Button(
+            self.button_frame,
+            text="Start",
+            width=10,
+            command=self.button_start,
+            bg=BTN_BG,
+            fg=TEXT_COLOR,
+            activebackground=WIDGET_BG,
+            activeforeground=TEXT_COLOR,
+        )
+        self.reset_button = tk.Button(
+            self.button_frame,
+            text="Reset",
+            width=10,
+            command=self.button_reset,
+            bg=BTN_BG,
+            fg=TEXT_COLOR,
+            activebackground=WIDGET_BG,
+            activeforeground=TEXT_COLOR,
+        )
+        self.exit_button = tk.Button(
+            self.button_frame,
+            text="Exit",
+            width=10,
+            command=self.exit_app,
+            bg=BTN_BG,
+            fg=TEXT_COLOR,
+            activebackground=WIDGET_BG,
+            activeforeground=TEXT_COLOR,
+        )
 
-        self.entry_label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(4, 2), padx=2)
-        self.input_entry.grid(row=1, column=0, columnspan=2, sticky=tk.EW, pady=(0, 14), padx=2, ipady=1)
+        self.entry_label.grid(
+            row=0, column=0, columnspan=2, sticky=tk.W, pady=(4, 2), padx=2
+        )
+        self.input_entry.grid(
+            row=1, column=0, columnspan=2, sticky=tk.EW, pady=(0, 14), padx=2, ipady=1
+        )
         self.start_button.grid(row=2, column=0, padx=2, pady=4)
         self.reset_button.grid(row=2, column=1, padx=2, pady=4)
         self.exit_button.grid(row=3, column=0, columnspan=2, sticky=tk.EW, pady=(10, 0))
@@ -176,36 +231,49 @@ class QCMApp:
 
         abs_freq = self._resolve_frequency(raw_freq)
         relative_freq = self._relative_frequency(abs_freq)
-        
-        print(f"[app] Refresh cycle at {current_time.strftime('%H:%M:%S')} | Abs Frequency: {abs_freq:.2f}")        
 
-        
+        print(
+            f"[app] Refresh cycle at {current_time.strftime('%H:%M:%S')} | Abs Frequency: {abs_freq:.2f}"
+        )
+
         self.plotter.update_plot(relative_freq)
 
         # --- ROLLING WINDOW DATA PRUNING ---
         max_history_points = getattr(self.settings.app, "max_history_points", 3600)
-        for attr_name in ["freq_data", "short_diff_data", "average_diff_data", "long_diff_data", "time_data"]:
+        for attr_name in [
+            "freq_data",
+            "short_diff_data",
+            "average_diff_data",
+            "long_diff_data",
+            "time_data",
+        ]:
             attr_list = getattr(self.plotter, attr_name, None)
             if isinstance(attr_list, list) and len(attr_list) > max_history_points:
                 setattr(self.plotter, attr_name, attr_list[-max_history_points:])
 
-        port = getattr(self.settings.serial, 'port', 'N/A')
-        baudrate = getattr(self.settings.serial, 'baudrate', 'N/A')
+        port = getattr(self.settings.serial, "port", "N/A")
+        baudrate = getattr(self.settings.serial, "baudrate", "N/A")
         read_time = current_time.strftime("%H:%M:%S")
         self.status_bar.config(
             text=f" {port} | {baudrate} \t\t\t  Last Read: {read_time} | {abs_freq / (10 ** 6):.8f} MHz"
         )
         self.telemetry_vars["rel_freq"].set(f"{relative_freq:.4f}")
-        
-        avg_slope = self.plotter.average_diff_data[-1] if self.plotter.average_diff_data else 0.0
-        long_slope = self.plotter.long_diff_data[-1] if self.plotter.long_diff_data else 0.0
-        
+
+        avg_slope = (
+            self.plotter.average_diff_data[-1]
+            if self.plotter.average_diff_data
+            else 0.0
+        )
+        long_slope = (
+            self.plotter.long_diff_data[-1] if self.plotter.long_diff_data else 0.0
+        )
+
         self.telemetry_vars["slope"].set(f"{avg_slope:.4f}")
         self.telemetry_vars["long_slope"].set(f"{long_slope:.4f}")
 
         if self.started_deposition:
             finish_freq = getattr(self.plotter, "finish_freq", 0)
-            
+
             if self.plotter.freq_data:
                 self.freq_left = self.plotter.freq_data[-1] - finish_freq
             else:
@@ -216,14 +284,22 @@ class QCMApp:
             else:
                 self.time_left = None
 
-            hz_stop = (self.reference_freq + finish_freq) / 10 ** 6
+            hz_stop = (self.reference_freq + finish_freq) / 10**6
             self.telemetry_vars["hz_stop"].set(f"{hz_stop:.8f}")
             self.telemetry_vars["hz_left"].set(f"{self.freq_left:.2f}")
-            self.telemetry_vars["min_left"].set(f"{self.time_left:.2f}" if self.time_left is not None else "Calculating...")
-            
+            self.telemetry_vars["min_left"].set(
+                f"{self.time_left:.2f}"
+                if self.time_left is not None
+                else "Calculating..."
+            )
+
             if self.time_left is not None:
                 if self.time_left < 1:
-                    if self.last_beep_time is None or (current_time - self.last_beep_time).total_seconds() >= self.settings.app.beep_every_seconds:
+                    if (
+                        self.last_beep_time is None
+                        or (current_time - self.last_beep_time).total_seconds()
+                        >= self.settings.app.beep_every_seconds
+                    ):
                         winsound.Beep(2500, self.settings.app.beep_duration_ms)
                         self.last_beep_time = current_time
                 if self.time_left < 0:
@@ -237,7 +313,7 @@ class QCMApp:
         execution_ms = int(time_difference.total_seconds() * 1000)
         gate_ms = int(self.settings.app.gate_time_seconds * 1000)
         delay_ms = max(100, gate_ms - execution_ms)
-        
+
         self.root.after(delay_ms, self._refresh_status)
 
     def exit_app(self) -> None:
@@ -246,7 +322,6 @@ class QCMApp:
 
     def _parse_decimal(self, value: str) -> float:
         return float(value.replace(",", "."))
-
 
     def _resolve_frequency(self, raw_freq: Optional[float]) -> float:
         # 1. Handle completely missing input when we also have no history
@@ -266,7 +341,6 @@ class QCMApp:
         self.last_abs_freq = raw_freq
         return raw_freq
 
-
     def _relative_frequency(self, abs_freq: float) -> float:
         if self.reference_freq is None:
             self.reference_freq = abs_freq
@@ -275,8 +349,8 @@ class QCMApp:
 
     def button_reset(self) -> None:
         self.input_entry.config(state="normal")
-        self.input_entry.delete(0, tk.END) 
-        
+        self.input_entry.delete(0, tk.END)
+
         self.plotter.clear_plot()
         self.reference_freq = None
         self.delta_freq = None
@@ -285,7 +359,7 @@ class QCMApp:
         self.started_deposition = False
         self.last_beep_time = None
         self.last_abs_freq = None
-        
+
         self.telemetry_vars["rel_freq"].set("0.0000")
         self.telemetry_vars["slope"].set("0.0000")
         self.telemetry_vars["long_slope"].set("0.0000")
@@ -293,11 +367,7 @@ class QCMApp:
         self.telemetry_vars["hz_left"].set("waiting")
         self.telemetry_vars["min_left"].set("waiting")
 
-        self.start_button.config(
-            relief=tk.RAISED, 
-            bg="#3e3e3e",
-            state="normal"
-        )
+        self.start_button.config(relief=tk.RAISED, bg="#3e3e3e", state="normal")
 
     def button_start(self) -> None:
         try:
@@ -305,17 +375,17 @@ class QCMApp:
             self.input_entry.config(state="disabled")
         except ValueError:
             self.delta_freq = 0.0
-            
+
         if self.delta_freq is not None:
             self.plotter.finish_line_plot(self.delta_freq)
             self.started_deposition = True
             self.last_beep_time = None
 
         self.start_button.config(
-            relief=tk.SUNKEN, 
-            bg="#2d2d2d",      
-            state="disabled",   
-            disabledforeground="#FF0000"
+            relief=tk.SUNKEN,
+            bg="#2d2d2d",
+            state="disabled",
+            disabledforeground="#FF0000",
         )
 
 
