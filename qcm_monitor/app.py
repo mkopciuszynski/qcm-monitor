@@ -14,7 +14,7 @@ from .config import load_settings
 from .plotter import Plotter
 from .serial_reader import SerialFrequencyReader
 
-MAX_JUMP_HZ = 2.0
+MAX_JUMP_HZ = 1.0
 
 
 class QCMApp:
@@ -324,20 +324,24 @@ class QCMApp:
         return float(value.replace(",", "."))
 
     def _resolve_frequency(self, raw_freq: Optional[float]) -> float:
-        # 1. Handle completely missing input when we also have no history
+        # 1. Handle completely missing input while keeping the last valid value.
         if raw_freq is None:
             if self.last_abs_freq is not None:
                 warnings.warn("Fallback to last good value")
                 return self.last_abs_freq
+
+            last_successful = getattr(self.reader, "last_successful_frequency", None)
+            if last_successful is not None:
+                return float(last_successful)
             return 0.0
 
-        # 2. Anomaly filtering check for valid incoming frequencies
+        # 2. Ignore transient jumps without overwriting the last good value.
         if self.last_abs_freq is not None:
             if abs(raw_freq - self.last_abs_freq) > MAX_JUMP_HZ:
                 warnings.warn("Jump detected! Used last good value")
-                raw_freq = self.last_abs_freq
+                return self.last_abs_freq
 
-        # 3. Update history and return
+        # 3. Update history only for genuine, non-anomalous readings.
         self.last_abs_freq = raw_freq
         return raw_freq
 

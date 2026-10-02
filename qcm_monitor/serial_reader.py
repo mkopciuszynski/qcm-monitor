@@ -14,6 +14,7 @@ class SerialFrequencyReader:
         self.settings = settings
         self.last_error: Optional[str] = None
         self.last_raw_response: Optional[str] = None
+        self.last_successful_frequency: Optional[float] = None
 
         self._serial: Optional[serial.Serial] = None
         self._command = f"{self.settings.command}{self.settings.termination}".encode(
@@ -54,6 +55,7 @@ class SerialFrequencyReader:
 
         for attempt in range(5):
             try:
+                self._serial.reset_input_buffer()
                 self._serial.write(self._command)
                 time.sleep(0.1)
 
@@ -71,6 +73,7 @@ class SerialFrequencyReader:
                 parsed = self._parse_frequency(self.last_raw_response)
                 if parsed is not None:
                     self.last_error = None
+                    self.last_successful_frequency = parsed
                     return parsed
 
                 self.last_error = f"Could not parse response: {self.last_raw_response}"
