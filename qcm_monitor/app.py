@@ -52,6 +52,7 @@ class QCMApp:
             average_diff_window_points=self.settings.app.average_slope_window_points,
             long_diff_window_points=self.settings.app.long_slope_window_points,
             gate_time_seconds=self.settings.app.gate_time_seconds,
+            max_history_points=self.settings.app.max_history_points,
         )
         self.delta_freq: Optional[float] = None
         self.time_left: Optional[float] = None
@@ -241,11 +242,11 @@ class QCMApp:
         # --- ROLLING WINDOW DATA PRUNING ---
         max_history_points = getattr(self.settings.app, "max_history_points", 3600)
         for attr_name in [
+            "time",
             "freq_data",
             "short_diff_data",
             "average_diff_data",
             "long_diff_data",
-            "time_data",
         ]:
             attr_list = getattr(self.plotter, attr_name, None)
             if isinstance(attr_list, list) and len(attr_list) > max_history_points:

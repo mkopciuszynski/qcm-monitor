@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 class Plotter:
-    """Manage the frequency and slope plots with a rolling 1-hour view."""
+    """Manage the frequency and slope plots with a rolling history window."""
 
     def __init__(
         self,
@@ -13,11 +13,13 @@ class Plotter:
         average_diff_window_points: int = 20,
         long_diff_window_points: int = 50,
         gate_time_seconds: int = 5,
+        max_history_points: int = 3600,
     ) -> None:
         self.short_diff_window_points = short_diff_window_points
         self.average_diff_window_points = average_diff_window_points
         self.long_diff_window_points = long_diff_window_points
         self.gate_time_seconds = gate_time_seconds
+        self.max_history_points = max_history_points
 
         self.fig = plt.Figure(figsize=(6, 7), dpi=100)
         self.axs = self.fig.subplots(2, 1, sharex=True)
@@ -88,15 +90,6 @@ class Plotter:
             self.average_diff_window_points
         )
         self.long_diff_data = self._compute_diff_series(self.long_diff_window_points)
-
-        max_history_points = max(1, int((60 * 60) / max(1, self.gate_time_seconds)))
-        if len(self.time) > max_history_points:
-            trim_count = len(self.time) - max_history_points
-            self.time = self.time[trim_count:]
-            self.freq_data = self.freq_data[trim_count:]
-            self.short_diff_data = self.short_diff_data[trim_count:]
-            self.average_diff_data = self.average_diff_data[trim_count:]
-            self.long_diff_data = self.long_diff_data[trim_count:]
 
         self.slope = (
             self.average_diff_data[-1] if self.average_diff_data else float("nan")

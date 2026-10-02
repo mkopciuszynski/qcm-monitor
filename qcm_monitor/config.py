@@ -23,6 +23,7 @@ class AppSettings:
     short_slope_window_points: int = 5
     average_slope_window_points: int = 20
     long_slope_window_points: int = 50
+    max_history_points: int = 3600
     beep_threshold_minutes: float = 1.0
     beep_duration_ms: int = 100
     beep_warning_ms: int = 1000
@@ -79,6 +80,7 @@ def load_settings(path: Optional[Path] = None) -> Settings:
         short_slope_window_points=parser.getint("app", "short_slope_window_points", fallback=5),
         average_slope_window_points=parser.getint("app", "average_slope_window_points", fallback=20),
         long_slope_window_points=parser.getint("app", "long_slope_window_points", fallback=50),
+        max_history_points=parser.getint("app", "max_history_points", fallback=3600),
         beep_threshold_minutes=parser.getfloat("app", "beep_threshold_minutes", fallback=1.0),
         beep_duration_ms=parser.getint("app", "beep_duration_ms", fallback=100),
         beep_warning_ms=parser.getint("app", "beep_warning_ms", fallback=1000),
@@ -104,6 +106,7 @@ def save_settings(settings: Settings, path: Optional[Path] = None) -> Path:
         "short_slope_window_points": str(settings.app.short_slope_window_points),
         "average_slope_window_points": str(settings.app.average_slope_window_points),
         "long_slope_window_points": str(settings.app.long_slope_window_points),
+        "max_history_points": str(settings.app.max_history_points),
         "beep_threshold_minutes": str(settings.app.beep_threshold_minutes),
         "beep_duration_ms": str(settings.app.beep_duration_ms),
         "beep_warning_ms": str(settings.app.beep_warning_ms),
